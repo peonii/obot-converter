@@ -15,11 +15,17 @@ pub struct MHRReplay {
 #[derive(Serialize, Deserialize)]
 pub struct MHRClick {
     pub frame: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub a: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub x: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub y: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub down: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub p2: Option<bool>,
 }
 
