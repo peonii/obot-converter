@@ -1,0 +1,15 @@
+[package]
+name = "obot-converter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.4.8", features = ["derive"] }
+color-eyre = "0.6.2"
+dlhn = "0.1.6"
+eyre = "0.6.9"
+serde = { version = "1.0.193", features = ["derive"] }
+simd-json = "0.13.4"
+thiserror = "1.0.50"
