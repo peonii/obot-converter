@@ -1,3 +1,4 @@
+use wasm_bindgen::prelude::*;
 use super::replay::{ReplayClickType, ReplayFormat};
 
 
@@ -20,15 +21,24 @@ impl PlainTextClick {
     pub fn from_string(data: &str) -> eyre::Result<Self> {
         let mut split = data.split_whitespace();
         let frame = split.next().ok_or(eyre::eyre!("No frame"))?.parse()?;
-        let hold = split.next().ok_or(eyre::eyre!("No hold"))?.parse()?;
-        let player_2 = split.next().ok_or(eyre::eyre!("No player 2"))?.parse()?;
+        let hold: i32 = split.next().ok_or(eyre::eyre!("No hold"))?.parse()?;
+        let player_2: i32 = split.next().ok_or(eyre::eyre!("No player 2"))?.parse()?;
 
         Ok(Self {
             frame,
-            hold,
-            player_2,
+            hold: if hold == 1 { true } else { false },
+            player_2: if player_2 == 1 { true } else { false },
         })
     }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+
 }
 
 impl ReplayFormat for PlainTextReplay {
@@ -63,12 +73,24 @@ impl ReplayFormat for PlainTextReplay {
             Self: Sized {
         let mut data = String::from_utf8(data.get_ref().clone())?;
 
-        let mut split = data.split('\n');
+        log("attempting to load!!! :3");
+
+        let replaced = data.trim_end().replace("\r\n", "\n");
+        let mut split = replaced.split('\n');
         let fps = split.next().ok_or(eyre::eyre!("No fps"))?.parse()?;
+        log(&format!("loaded fps :3 :3!!!! it appears to be {}... so silly...", fps));
         let mut clicks = vec![];
 
         for click in split {
-            clicks.push(PlainTextClick::from_string(click)?);
+            //log(click);
+            clicks.push(PlainTextClick::from_string(click)
+                .map_err(|e| {
+                    log("something got SERIOUSLY fgucked up");
+                    log(&e.to_string());
+
+                    e
+                })?
+            );
         }
 
         Ok(Self {
@@ -81,6 +103,7 @@ impl ReplayFormat for PlainTextReplay {
         where
             Self: Sized {
         let mut plain_text_replay = PlainTextReplay::new(replay.fps);
+
 
         for click in replay.clicks.iter() {
             if click.p1 != ReplayClickType::Skip {
