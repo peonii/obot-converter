@@ -1,0 +1,123 @@
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+  </head>
+  <body>
+    <h1>GD Macro Converter</h1>
+
+    <input type="file" id="file-input" />
+    <button id="load-button">Load</button>
+
+    <p>Loaded Format: <span id="format"></span></p>
+    <p>FPS: <span id="fps"></span></p>
+    <p>Length: <span id="length"></span></p>
+
+    <select id="format-select">
+        <option value="OmegaBot">OmegaBot</option>
+        <option value="MHR">MHR Json</option>
+        <option value="MHRBinary">MHR Binary</option>
+        <option value="Tasbot">TASBot</option>
+        <option value="ZBot">ZBot</option>
+        <option value="PlainText">Plain Text</option>
+    </select>
+    <button id="convert-button">Convert</button>
+
+    <!-- Note the usage of `type=module` here as this is an ES6 module -->
+    <script type="module">
+      // Use ES module import syntax to import functionality from the module
+      // that we have compiled.
+      //
+      // Note that the `default` import is an initialization function which
+      // will "boot" the module and make it ready to use. Currently browsers
+      // don't support natively imported WebAssembly as an ES module, but
+      // eventually the manual initialization won't be required!
+      import init, { Converter, Format } from './www/pkg/obot_converter.js';
+
+      let converter = null;
+
+      async function run() {
+        await init();
+
+        converter = new Converter();
+      }
+
+      document.getElementById('load-button').addEventListener('click', async () => {
+        /** @type {File} */
+        const file = document.getElementById('file-input').files[0];
+
+        let format = null;
+        let name = file.name.split('.');
+        name.shift();
+        let ext = name.join('.');
+        console.log(ext);
+        switch (ext) {
+          case 'json':
+            format = Format["Tasbot"]
+            break;
+          case 'mhr.json':
+            format = Format["MHR"]
+            break;
+          case 'replay':
+            format = Format["OmegaBot"]
+            break;
+          case 'mhr':
+            format = Format["MHRBinary"]
+            break;
+          case 'zbf':
+            format = Format["ZBot"]
+            break;
+          case 'txt':
+            format = Format["PlainText"]
+            break;
+        }
+
+        const data = await file.arrayBuffer();
+        const arr = new Uint8Array(data);
+        converter.load(arr, format);
+
+        document.getElementById('fps').innerText = converter.get_fps().toString();
+        document.getElementById('length').innerText = converter.length().toString();
+        document.getElementById('format').innerText = Format[format];
+      })
+
+      document.getElementById('convert-button').addEventListener('click', async () => {
+        const fmt = document.getElementById('format-select').value;
+        console.log(fmt);
+        const data = converter.save(Format[fmt]);
+
+        
+        const blob = new Blob([data], {type: "application/octet-stream"});
+        const url = URL.createObjectURL(blob);
+
+        let filename = document.getElementById('file-input').files[0].name.split('.').shift();
+        switch (fmt) {
+          case 'OmegaBot':
+            filename += '.replay';
+            break;
+          case 'MHR':
+            filename += '.mhr.json';
+            break;
+          case 'Tasbot':
+            filename += '.json';
+            break;
+          case 'MHRBinary':
+            filename += '.mhr';
+            break;
+          case 'ZBot':
+            filename += '.zbf';
+            break;
+          case 'PlainText':
+            filename += '.txt';
+            break;
+        }
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+      })
+
+      run();
+    </script>
+  </body>
+</html>
