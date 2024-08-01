@@ -9,7 +9,7 @@ pub struct ZBotReplay {
 }
 
 pub struct ZBotClick {
-    pub frame: i32,
+    pub frame: f32,
     pub hold: bool,
     pub player_1: bool
 }
@@ -18,7 +18,7 @@ impl ZBotClick {
     pub fn from_binary(data: &mut std::io::Cursor<Vec<u8>>) -> eyre::Result<Self> {
         let mut frame = [0; 4];
         data.read_exact(&mut frame)?;
-        let frame = i32::from_le_bytes(frame);
+        let frame = f32::from_le_bytes(frame);
 
         let mut hold = [0u8; 1];
         data.read_exact(&mut hold)?;
@@ -36,14 +36,11 @@ impl ZBotClick {
     }
 
     pub fn to_binary(&self) -> Vec<u8> {
-        let bytes = vec![
-            (self.frame & 0xFF) as u8,
-            ((self.frame >> 8) & 0xFF) as u8,
-            ((self.frame >> 16) & 0xFF) as u8,
-            ((self.frame >> 24) & 0xFF) as u8,
-            if self.hold { 0x31 } else { 0x30 },
-            if self.player_1 { 0x31 } else { 0x30 },
-        ];
+        let mut bytes = vec![];
+
+        bytes.extend_from_slice(&self.frame.to_le_bytes());
+        bytes.push(if self.hold { 0x31 } else { 0x30 });
+        bytes.push(if self.player_1 { 0x31 } else { 0x30 });
 
         bytes
     }
@@ -112,19 +109,19 @@ impl ReplayFormat for ZBotReplay {
         let mut zbot_replay = Self::new(replay.fps);
 
         zbot_replay.add_click(ZBotClick {
-            frame: 0,
+            frame: 0.0,
             hold: false,
             player_1: true,
         });
         zbot_replay.add_click(ZBotClick {
-            frame: 0,
+            frame: 0.0,
             hold: false,
             player_1: false,
         });
 
         replay.clicks.iter().for_each(|click| {
 
-            let frame = if click.frame == 0 { 1 } else { click.frame as i32 };
+            let frame = if click.frame == 0 { 1.0 } else { click.frame as f32 };
 
             if click.p1 != ReplayClickType::Skip {
                 zbot_replay.add_click(ZBotClick {
