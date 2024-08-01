@@ -1,13 +1,10 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, io::Cursor, path::Path};
 
 use dlhn::{Deserializer, Serializer};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    replay::{Replay, ReplayClickType, ReplayFormat},
-    tasbot::TasbotReplay,
-};
+use super::replay::{GameVersion, Replay, ReplayClickType, ReplayFormat};
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Default, Debug)]
 pub enum OmegabotClickType {
@@ -20,6 +17,16 @@ pub enum OmegabotClickType {
     Player2Up,
 
     FpsChange(f32),
+}
+
+impl OmegabotClickType {
+    pub fn is_player1(&self) -> bool {
+        matches!(self, OmegabotClickType::Player1Down | OmegabotClickType::Player1Up)
+    }
+
+    pub fn is_player2(&self) -> bool {
+        matches!(self, OmegabotClickType::Player2Down | OmegabotClickType::Player2Up)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -59,11 +66,32 @@ impl ReplayFormat for OmegabotReplay {
                 replay
             })
     }
+    
+    fn from_data(data: &mut Cursor<Vec<u8>>) -> Result<Self>
+        where
+            Self: Sized {
+        
+        let mut deserializer = Deserializer::new(data);
+        Self::deserialize(&mut deserializer)
+            .map_err(|e| e.into())
+            .map(|mut replay| {
+                replay.current_fps = replay.initial_fps;
+                replay.current = 0;
+                replay
+            })
+    }
 
     fn save(&self, path: impl AsRef<Path>) -> Result<()> {
         let mut file = File::create(path)?;
         let mut serializer = Serializer::new(&mut file);
         self.serialize(&mut serializer).map_err(|e| e.into())
+    }
+
+    fn dump(&self) -> Result<Vec<u8>> {
+        let mut data = Vec::new();
+        let mut serializer = Serializer::new(&mut data);
+        self.serialize(&mut serializer)?;
+        Ok(data)
     }
 
     fn add_click(&mut self, click: OmegabotClick) {
@@ -76,32 +104,50 @@ impl ReplayFormat for OmegabotReplay {
     }
 
     fn from_universal(replay: super::replay::Replay) -> Result<Self> {
+        if replay.game_version != GameVersion::Version2113 {
+            return Err(eyre::eyre!("Unsupported game version: {:?}", replay.game_version));
+        }
+
         let mut obot_replay = Self::new(replay.fps);
         for click in replay.clicks.iter() {
-            obot_replay.add_click(OmegabotClick {
-                frame: click.frame,
-                click_type: match click.p1 {
-                    ReplayClickType::Click => OmegabotClickType::Player1Down,
-                    ReplayClickType::Release => OmegabotClickType::Player1Up,
-                    ReplayClickType::Skip => OmegabotClickType::None,
-                },
-            });
-
-            obot_replay.add_click(OmegabotClick {
-                frame: click.frame,
-                click_type: match click.p2 {
-                    ReplayClickType::Click => OmegabotClickType::Player2Down,
-                    ReplayClickType::Release => OmegabotClickType::Player2Up,
-                    ReplayClickType::Skip => OmegabotClickType::None,
-                },
-            });
+            match click.p1 {
+                ReplayClickType::Click => {
+                    obot_replay.add_click(OmegabotClick {
+                        frame: click.frame as u32,
+                        click_type: OmegabotClickType::Player1Down,
+                    });
+                }
+                ReplayClickType::Release => {
+                    obot_replay.add_click(OmegabotClick {
+                        frame: click.frame as u32,
+                        click_type: OmegabotClickType::Player1Up,
+                    });
+                }
+                _ => {}
+            }
+            
+            match click.p2 {
+                ReplayClickType::Click => {
+                    obot_replay.add_click(OmegabotClick {
+                        frame: click.frame as u32,
+                        click_type: OmegabotClickType::Player2Down,
+                    });
+                }
+                ReplayClickType::Release => {
+                    obot_replay.add_click(OmegabotClick {
+                        frame: click.frame as u32,
+                        click_type: OmegabotClickType::Player2Up,
+                    });
+                }
+                _ => {}
+            }
         }
 
         Ok(obot_replay)
     }
 
     fn to_universal(&self) -> Result<super::replay::Replay> {
-        let mut replay = Replay::new(self.initial_fps);
+        let mut replay = Replay::new(self.initial_fps, GameVersion::Version2113);
 
         for click in self.clicks.iter() {
             let mut click_type = ReplayClickType::Skip;
@@ -122,18 +168,34 @@ impl ReplayFormat for OmegabotReplay {
                     p2 = true;
                     click_type = ReplayClickType::Click;
                 }
-                _ => {}
+                _ => {
+                    continue;
+                }
             }
 
+            // let previous_click = replay.clicks.last_mut();
+
+            // if let Some(p) = previous_click {
+            //     if p.frame == click.frame {
+            //         if p.p2 == ReplayClickType::Skip && p2 {
+            //             p.p2 = click_type;
+            //             continue;
+            //         } else if p.p1 == ReplayClickType::Skip && !p2 {
+            //             p.p1 = click_type;
+            //             continue;
+            //         }
+            //     }
+            // }
+
             replay.clicks.push(super::replay::ReplayClick {
-                frame: click.frame,
+                frame: click.frame as i64,
                 p1: if !p2 {
-                    click_type.clone()
+                    click_type
                 } else {
                     ReplayClickType::Skip
                 },
                 p2: if p2 {
-                    click_type.clone()
+                    click_type
                 } else {
                     ReplayClickType::Skip
                 },

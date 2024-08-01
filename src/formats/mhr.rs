@@ -2,7 +2,7 @@ use std::fs::File;
 
 use serde::{Deserialize, Serialize};
 
-use super::replay::{Replay, ReplayFormat};
+use super::replay::{GameVersion, Replay, ReplayFormat};
 
 #[derive(Serialize, Deserialize)]
 pub struct MHRReplay {
@@ -45,15 +45,26 @@ impl ReplayFormat for MHRReplay {
         }
     }
 
+    fn from_data(data: &mut std::io::Cursor<Vec<u8>>) -> eyre::Result<Self>
+        where
+            Self: Sized {
+        let deserialized = serde_json::from_reader::<std::io::Cursor<Vec<u8>>, Self>(data.clone())?;
+        Ok(deserialized)
+    }
+
     fn load(path: impl AsRef<std::path::Path>) -> eyre::Result<Self> {
         let file = File::open(path)?;
-        let deserialized = simd_json::from_reader::<File, Self>(file)?;
+        let deserialized = serde_json::from_reader::<File, Self>(file)?;
         Ok(deserialized)
+    }
+
+    fn dump(&self) -> eyre::Result<Vec<u8>> {
+        Ok(serde_json::to_vec(self)?)
     }
 
     fn save(&self, path: impl AsRef<std::path::Path>) -> eyre::Result<()> {
         let file = File::create(path)?;
-        simd_json::to_writer(file, self)?;
+        serde_json::to_writer(file, self)?;
         Ok(())
     }
 
@@ -70,64 +81,72 @@ impl ReplayFormat for MHRReplay {
     }
 
     fn from_universal(replay: super::replay::Replay) -> eyre::Result<Self> {
+        if replay.game_version != GameVersion::Version2113 {
+            return Err(eyre::eyre!("Unsupported game version: {:?}", replay.game_version));
+        }
+
         let mut mhr_replay = MHRReplay::new(replay.fps);
 
         for click in replay.clicks.iter() {
-            mhr_replay.add_click(MHRClick {
-                frame: click.frame,
-                a: Some(0.0),
-                r: Some(0.0),
-                x: Some(0.0),
-                y: Some(0.0),
-                down: match click.p1 {
-                    super::replay::ReplayClickType::Skip => None,
-                    super::replay::ReplayClickType::Click => Some(true),
-                    super::replay::ReplayClickType::Release => Some(false),
-                },
-                p2: None,
-            });
+            if click.p1 != super::replay::ReplayClickType::Skip {
+                mhr_replay.add_click(MHRClick {
+                    frame: click.frame as u32,
+                    a: Some(0.0),
+                    r: Some(0.0),
+                    x: Some(0.0),
+                    y: Some(0.0),
+                    down: match click.p1 {
+                        super::replay::ReplayClickType::Skip => None,
+                        super::replay::ReplayClickType::Click => Some(true),
+                        super::replay::ReplayClickType::Release => Some(false),
+                    },
+                    p2: None
+                });
+            }
 
-            mhr_replay.add_click(MHRClick {
-                frame: click.frame,
-                a: Some(0.0),
-                r: Some(0.0),
-                x: Some(0.0),
-                y: Some(0.0),
-                down: match click.p2 {
-                    super::replay::ReplayClickType::Skip => None,
-                    super::replay::ReplayClickType::Click => Some(true),
-                    super::replay::ReplayClickType::Release => Some(false),
-                },
-                p2: Some(true),
-            });
+            if click.p2 != super::replay::ReplayClickType::Skip {
+                mhr_replay.add_click(MHRClick {
+                    frame: click.frame as u32,
+                    a: Some(0.0),
+                    r: Some(0.0),
+                    x: Some(0.0),
+                    y: Some(0.0),
+                    down: match click.p2 {
+                        super::replay::ReplayClickType::Skip => None,
+                        super::replay::ReplayClickType::Click => Some(true),
+                        super::replay::ReplayClickType::Release => Some(false),
+                    },
+                    p2: Some(true)
+                });
+            }
         }
 
         Ok(mhr_replay)
     }
 
     fn to_universal(&self) -> eyre::Result<super::replay::Replay> {
-        let mut replay = Replay::new(self.meta.fps);
+        let mut replay = Replay::new(self.meta.fps, GameVersion::Version2113);
 
         for click in self.events.iter() {
-            if let Some(down) = click.down {
+            if click.p2.is_some_and(|p2| p2) {
                 replay.clicks.push(super::replay::ReplayClick {
-                    frame: click.frame,
-                    p1: match down {
-                        true => super::replay::ReplayClickType::Click,
-                        false => super::replay::ReplayClickType::Release,
+                    frame: click.frame as i64,
+                    p1: super::replay::ReplayClickType::Skip,
+                    p2: match click.down {
+                        Some(true) => super::replay::ReplayClickType::Click,
+                        Some(false) => super::replay::ReplayClickType::Release,
+                        None => super::replay::ReplayClickType::Skip,
+                    },
+                });
+            } else {
+                replay.clicks.push(super::replay::ReplayClick {
+                    frame: click.frame as i64,
+                    p1: match click.down {
+                        Some(true) => super::replay::ReplayClickType::Click,
+                        Some(false) => super::replay::ReplayClickType::Release,
+                        None => super::replay::ReplayClickType::Skip,
                     },
                     p2: super::replay::ReplayClickType::Skip,
-                });
-            }
-
-            if let Some(p2) = click.p2 {
-                replay.clicks.push(super::replay::ReplayClick {
-                    frame: click.frame,
-                    p1: super::replay::ReplayClickType::Skip,
-                    p2: match p2 {
-                        true => super::replay::ReplayClickType::Click,
-                        false => super::replay::ReplayClickType::Release,
-                    },
                 });
             }
         }
