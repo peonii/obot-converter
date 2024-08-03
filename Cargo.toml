@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+bincode = "1.3.3"
 clap = { version = "4.4.8", features = ["derive"] }
 color-eyre = "0.6.2"
 dlhn = "0.1.6"

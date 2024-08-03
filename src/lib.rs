@@ -3,7 +3,7 @@ pub mod formats;
 
 use std::io::Cursor;
 
-use formats::{mhr::MHRReplay, mhr_binary::MHRBinaryReplay, omegabot::OmegabotReplay, plain_text::PlainTextReplay, replay::{GameVersion, Replay, ReplayClick, ReplayFormat}, tasbot::TasbotReplay, zbot::ZBotReplay};
+use formats::{mhr::MHRReplay, mhr_binary::MHRBinaryReplay, omegabot::OmegabotReplay, omegabot_2::OmegaBot2Replay, plain_text::PlainTextReplay, replay::{GameVersion, Replay, ReplayClick, ReplayFormat}, tasbot::TasbotReplay, url::URLReplay, zbot::ZBotReplay};
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wee_alloc")]
@@ -23,7 +23,9 @@ pub enum Format {
     Tasbot,
     MHRBinary,
     ZBot,
-    PlainText
+    PlainText,
+    URL,
+    OmegaBot2
 }
 
 #[wasm_bindgen]
@@ -54,6 +56,12 @@ impl Converter {
             }
             Format::PlainText => {
                 PlainTextReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+            }
+            Format::URL => {
+                URLReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+            },
+            Format::OmegaBot2 => {
+                OmegaBot2Replay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
             }
         };
 
@@ -96,6 +104,14 @@ impl Converter {
             }
             Format::PlainText => {
                 let replay = PlainTextReplay::from_universal(self.loaded_replay.clone()).unwrap();
+                replay.dump().unwrap()
+            }
+            Format::URL => {
+                let replay = URLReplay::from_universal(self.loaded_replay.clone()).unwrap();
+                replay.dump().unwrap()
+            }
+            Format::OmegaBot2 => {
+                let replay = OmegaBot2Replay::from_universal(self.loaded_replay.clone()).unwrap();
                 replay.dump().unwrap()
             }
         }
