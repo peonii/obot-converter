@@ -1,7 +1,19 @@
-use std::{fmt::Display, io::Cursor, path::Path};
+use std::fmt::Display;
 
-use eyre::Result;
+use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
+
+#[derive(Debug, Error)]
+pub enum ReplayError {
+    #[error("Failed to parse replay")]
+    ParseError,
+
+    #[error("Failed to read to buffer")]
+    BufferError(#[from] std::io::Error),
+    
+    #[error("Failed to write replay")]
+    WriteError,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GameVersion {
@@ -18,50 +30,89 @@ impl Display for GameVersion {
     }
 }
 
-pub trait ReplayFormat {
-    type ClickType;
-
-    fn new(fps: f32) -> Self;
-    fn from_data(data: &mut Cursor<Vec<u8>>) -> Result<Self>
-    where
-        Self: Sized;
-    fn load(path: impl AsRef<Path>) -> Result<Self>
-    where
-        Self: Sized;
- 
-    fn dump(&self) -> Result<Vec<u8>>;
-    fn save(&self, path: impl AsRef<Path>) -> Result<()>;
-    fn add_click(&mut self, click: Self::ClickType) -> ();
-
-    fn from_universal(replay: Replay) -> Result<Self>
-    where
-        Self: Sized;
-    fn to_universal(&self) -> Result<Replay>;
-}
-
-/// Made to act as an intermediate for converting between formats
-/// Not serializable
 #[derive(Clone)]
 pub struct Replay {
     pub fps: f32,
-    pub clicks: Vec<ReplayClick>,
+    pub clicks: Vec<Click>,
     pub game_version: GameVersion
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[wasm_bindgen]
-pub enum ReplayClickType {
+pub enum ClickType {
     Click,
     Release,
     Skip,
 }
 
+impl From<bool> for ClickType {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::Click,
+            false => Self::Release
+        }
+    }
+}
+
+impl ClickType {
+    pub fn is_skip(&self) -> bool {
+        matches!(self, ClickType::Skip)
+    }
+
+    pub fn is_click(&self) -> bool {
+        matches!(self, ClickType::Click)
+    }
+
+    pub fn is_release(&self) -> bool {
+        matches!(self, ClickType::Release)
+    }
+
+    pub fn toggle(&self) -> Self {
+        match self {
+            ClickType::Click => ClickType::Release,
+            ClickType::Release => ClickType::Click,
+            ClickType::Skip => ClickType::Skip,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[wasm_bindgen]
-pub struct ReplayClick {
-    pub frame: i64,
-    pub p1: ReplayClickType,
-    pub p2: ReplayClickType,
+pub struct Click {
+    pub frame: u32,
+    pub p1: ClickType,
+    pub p2: ClickType,
+}
+
+impl Click {
+    pub fn from_hold(frame: u32, hold: bool, player_2: bool) -> Self {
+        Self {
+            frame,
+            p1: if !player_2 { hold.into() } else { ClickType::Skip },
+            p2: if player_2 { hold.into() } else { ClickType::Skip },
+        }
+    }
+
+    pub fn apply_hold<F, E>(&self, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(u32, bool, bool) -> Result<(), E>
+    {
+        if !self.p1.is_skip() {
+            f(self.frame, self.p1.is_click(), false)?;
+        }
+
+        if !self.p2.is_skip() {
+            f(self.frame, self.p2.is_click(), true)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Default for Replay {
+    fn default() -> Self {
+        Self::new(60.0, GameVersion::Version2113)
+    }
 }
 
 impl Replay {
@@ -71,5 +122,10 @@ impl Replay {
             clicks: vec![],
             game_version
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.clicks.clear();
+        self.fps = 60.0;
     }
 }

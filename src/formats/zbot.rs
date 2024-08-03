@@ -1,175 +1,68 @@
-use std::io::{Read, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
-use super::replay::{GameVersion, ReplayClickType, ReplayFormat};
+use super::replay::{Click, Replay, ReplayError};
 
 
-pub struct ZBotReplay {
-    pub fps: f32,
-    pub clicks: Vec<ZBotClick>,
-}
+impl Replay {
+    pub fn parse_zbot(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
+        self.clear();
 
-pub struct ZBotClick {
-    pub frame: i32,
-    pub hold: bool,
-    pub player_1: bool
-}
+        let mut reader = BufReader::new(reader);
 
-impl ZBotClick {
-    pub fn from_binary(data: &mut std::io::Cursor<Vec<u8>>) -> eyre::Result<Self> {
-        let mut frame = [0; 4];
-        data.read_exact(&mut frame)?;
-        let frame = i32::from_le_bytes(frame);
+        let mut buf = [0u8; 4];
 
-        let mut hold = [0u8; 1];
-        data.read_exact(&mut hold)?;
-        let hold = hold[0] == 0x31;
+        reader.read(&mut buf)?;
+        let delta = f32::from_le_bytes(buf);
+        reader.read(&mut buf)?;
+        let speedhack = f32::from_le_bytes(buf);
 
-        let mut player_1 = [0u8; 1];
-        data.read_exact(&mut player_1)?;
-        let player_1 = player_1[0] == 0x31;
+        self.fps = 1.0 / (delta * speedhack);
 
-        Ok(Self {
-            frame,
-            hold,
-            player_1,
-        })
-    }
+        // 8 is how much space the delta and speedhack take up, 
+        // 6 is how much space one click takes up (in bytes)
+        let clicks_len = (reader.stream_len()? - 8) / 6; 
+        self.clicks.reserve(clicks_len as usize);
 
-    pub fn to_binary(&self) -> Vec<u8> {
-        let mut bytes = vec![];
+        // Preallocate memory for reading hold and player 2 data
+        let mut small_buf = [0u8; 1];
 
-        bytes.extend_from_slice(&self.frame.to_le_bytes());
-        bytes.push(if self.hold { 0x31 } else { 0x30 });
-        bytes.push(if self.player_1 { 0x31 } else { 0x30 });
+        for _ in 0..clicks_len {
+            reader.read(&mut buf)?;
+            let frame = i32::from_le_bytes(buf);
 
-        bytes
-    }
-}
+            reader.read(&mut small_buf)?;
+            let hold = small_buf[0] == 0x31;
 
-impl ReplayFormat for ZBotReplay {
-    type ClickType = ZBotClick;
-
-    fn new(fps: f32) -> Self {
-        Self {
-            fps,
-            clicks: vec![],
-        }
-    }
-
-    fn add_click(&mut self, click: Self::ClickType) -> () {
-        self.clicks.push(click);
-    }
-
-    fn dump(&self) -> eyre::Result<Vec<u8>> {
-        let mut bytes = vec![];
-        
-        let delta: f32 = 1.0 / self.fps; // This is disgusting, I hate it, what the hell Fig
-        bytes.extend_from_slice(&delta.to_le_bytes());
-        bytes.extend_from_slice(&(1.0 as f32).to_le_bytes());
-
-        for click in &self.clicks {
-            bytes.extend_from_slice(&click.to_binary());
+            reader.read(&mut small_buf)?;
+            let player_2 = small_buf[0] == 0x31;
+            
+            self.clicks.push(
+                Click::from_hold(frame as u32, hold, player_2)
+            );
         }
 
-        Ok(bytes)
-    }
+        Ok(())
+    }   
 
-    fn from_data(data: &mut std::io::Cursor<Vec<u8>>) -> eyre::Result<Self>
-        where
-            Self: Sized {
-        let mut delta = [0u8; 4];
-        data.read_exact(&mut delta)?;
-        let delta = f32::from_le_bytes(delta);
+    pub fn write_zbot(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
+        let mut writer = BufWriter::new(writer);
 
-        let mut speedhack = [0u8; 4];
-        data.read_exact(&mut speedhack)?;
-        let speedhack = f32::from_le_bytes(speedhack);
+        writer.write(&((1.0 / self.fps).to_le_bytes()))?; // Delta
+        writer.write(&(1.0_f32.to_le_bytes()))?; // Speedhack
 
-        let fps = (1.0 / (delta * speedhack)).round();
+        self.clicks.iter().try_for_each(|click| {
+            click.apply_hold(|frame, hold, p2| {
+                writer.write(&(frame as i32).to_le_bytes())?;
+                writer.write(
+                    &(if hold { 0x31_u8 } else { 0x30_u8 }).to_le_bytes()
+                )?;
+                writer.write(
+                    &(if !p2 { 0x31_u8 } else { 0x30_u8 }).to_le_bytes()
+                )?;
 
-        let mut clicks = Vec::new();
-
-        while data.position() < data.get_ref().len() as u64 {
-            clicks.push(ZBotClick::from_binary(data)?);
-        }
-
-        Ok(Self {
-            fps,
-            clicks,
-        })
-    }
-
-    fn from_universal(replay: super::replay::Replay) -> eyre::Result<Self>
-        where
-            Self: Sized {
-        if replay.game_version != GameVersion::Version2113 {
-            return Err(eyre::eyre!("Unsupported game version: {:?}", replay.game_version));
-        }
-
-        let mut zbot_replay = Self::new(replay.fps);
-
-        replay.clicks.iter().for_each(|click| {
-
-            let frame = if click.frame == 0 { 1 } else { click.frame as i32 };
-
-            if click.p1 != ReplayClickType::Skip {
-                zbot_replay.add_click(ZBotClick {
-                    frame,
-                    hold: click.p1 == ReplayClickType::Click,
-                    player_1: true,
-                });
-            }
-
-            if click.p2 != ReplayClickType::Skip {
-                zbot_replay.add_click(ZBotClick {
-                    frame,
-                    hold: click.p2 == ReplayClickType::Click,
-                    player_1: false,
-                });
-            }
-        });
-
-        Ok(zbot_replay)
-    }
-
-    fn to_universal(&self) -> eyre::Result<super::replay::Replay> {
-        let mut replay = super::replay::Replay::new(self.fps, GameVersion::Version2113);
-
-        for click in self.clicks.iter() {
-            if click.player_1 {
-                replay.clicks.push(super::replay::ReplayClick {
-                    frame: click.frame as i64,
-                    p1: if click.hold { ReplayClickType::Click } else { ReplayClickType::Release },
-                    p2: ReplayClickType::Skip,
-                });
-            } else {
-                replay.clicks.push(super::replay::ReplayClick {
-                    frame: click.frame as i64,
-                    p1: ReplayClickType::Skip,
-                    p2: if click.hold { ReplayClickType::Click } else { ReplayClickType::Release },
-                });
-            }
-        }
-
-        Ok(replay)
-    }
-
-    fn load(path: impl AsRef<std::path::Path>) -> eyre::Result<Self>
-        where
-            Self: Sized {
-        let mut file = std::fs::File::open(path)?;
-
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-
-        let mut cursor = std::io::Cursor::new(data);
-        Self::from_data(&mut cursor)
-    }
-
-    fn save(&self, path: impl AsRef<std::path::Path>) -> eyre::Result<()> {
-        let mut file = std::fs::File::create(path)?;
-
-        file.write_all(&self.dump()?)?;
+                Ok::<(), ReplayError>(())
+            })
+        })?;
 
         Ok(())
     }

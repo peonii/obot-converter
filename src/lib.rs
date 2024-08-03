@@ -1,14 +1,11 @@
-pub mod cli;
+#![feature(seek_stream_len)]
 pub mod formats;
 
 use std::io::Cursor;
 
-use formats::{mhr::MHRReplay, mhr_binary::MHRBinaryReplay, omegabot::OmegabotReplay, omegabot_2::OmegaBot2Replay, plain_text::PlainTextReplay, replay::{GameVersion, Replay, ReplayClick, ReplayFormat}, tasbot::TasbotReplay, url::URLReplay, zbot::ZBotReplay};
+use formats::replay::{Click, Replay};
+use thiserror::Error;
 use wasm_bindgen::prelude::*;
-
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
 #[derive(Clone)]
@@ -29,39 +26,43 @@ pub enum Format {
 }
 
 #[wasm_bindgen]
+#[derive(Debug, Error)]
 pub enum ConverterError {
-    InvalidData
+    #[error("Invalid data provided")]
+    InvalidData,
 }
 
 #[wasm_bindgen]
 impl Converter {
     pub fn load(&mut self, data: Vec<u8>, fmt: Format) -> Result<(), ConverterError> {
-        let mut data = Cursor::new(data);
+        let cursor = Cursor::new(data);
 
-        self.loaded_replay = match fmt {
-            Format::OmegaBot => {
-                OmegabotReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
-            }
-            Format::MHR => {
-                MHRReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+        self.loaded_replay.clear();
+
+        match fmt {
+            Format::PlainText => {
+                self.loaded_replay.parse_plain_text(cursor).unwrap()     
             }
             Format::Tasbot => {
-                TasbotReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
-            }
-            Format::MHRBinary => {
-                MHRBinaryReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+                self.loaded_replay.parse_tasbot(cursor).unwrap()
             }
             Format::ZBot => {
-                ZBotReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+                self.loaded_replay.parse_zbot(cursor).unwrap()
             }
-            Format::PlainText => {
-                PlainTextReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+            Format::OmegaBot => {
+                self.loaded_replay.parse_obot3(cursor).unwrap()
+            }
+            Format::MHR => {
+                self.loaded_replay.parse_mhr_json(cursor).unwrap()
+            }
+            Format::MHRBinary => {
+                self.loaded_replay.parse_mhr_binary(cursor).unwrap()
             }
             Format::URL => {
-                URLReplay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
-            },
+                self.loaded_replay.parse_url(cursor).unwrap()
+            }
             Format::OmegaBot2 => {
-                OmegaBot2Replay::from_data(&mut data).map_err(|_| ConverterError::InvalidData)?.to_universal().map_err(|_| ConverterError::InvalidData)?
+                self.loaded_replay.parse_obot2(cursor).unwrap()
             }
         };
 
@@ -76,51 +77,56 @@ impl Converter {
         self.loaded_replay.clicks.len()
     }
 
-    pub fn clicks(&self) -> Vec<ReplayClick> {
+    pub fn clicks(&self) -> Vec<Click> {
         self.loaded_replay.clicks.clone()
     }
 
     pub fn save(&self, fmt: Format) -> Vec<u8> {
+        let buffer = Vec::new();
+        let mut cursor = Cursor::new(buffer);
+
         match fmt {
-            Format::OmegaBot => {
-                let replay = OmegabotReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
-            }
-            Format::MHR => {
-                let replay = MHRReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+            Format::PlainText => {
+                self.loaded_replay.write_plain_text(&mut cursor)
+                    .unwrap();
             }
             Format::Tasbot => {
-                let replay = TasbotReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
-            }
-            Format::MHRBinary => {
-                let replay = MHRBinaryReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+                self.loaded_replay.write_tasbot(&mut cursor)
+                    .unwrap()
             }
             Format::ZBot => {
-                let replay = ZBotReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+                self.loaded_replay.write_zbot(&mut cursor)
+                    .unwrap()
             }
-            Format::PlainText => {
-                let replay = PlainTextReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+            Format::OmegaBot => {
+                self.loaded_replay.write_obot3(&mut cursor)
+                    .unwrap()
+            }
+            Format::MHR => {
+                self.loaded_replay.write_mhr_json(&mut cursor)
+                    .unwrap()
+            }
+            Format::MHRBinary => {
+                self.loaded_replay.write_mhr_binary(&mut cursor)
+                    .unwrap()
             }
             Format::URL => {
-                let replay = URLReplay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+                self.loaded_replay.write_url(&mut cursor)
+                    .unwrap()
             }
             Format::OmegaBot2 => {
-                let replay = OmegaBot2Replay::from_universal(self.loaded_replay.clone()).unwrap();
-                replay.dump().unwrap()
+                self.loaded_replay.write_obot2(&mut cursor)
+                    .unwrap()
             }
-        }
+        };
+
+        cursor.into_inner()
     }
 
     #[wasm_bindgen(constructor)]
     pub fn new() -> Converter {
         Converter {
-            loaded_replay: Replay::new(60.0, GameVersion::Version2113)
+            loaded_replay: Replay::default()
         }
     }
 }
@@ -129,5 +135,5 @@ impl Converter {
 fn run() {
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
-    let body = document.body().expect("document should have a body");
+    let _body = document.body().expect("document should have a body");
 }
