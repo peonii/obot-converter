@@ -18,9 +18,15 @@ impl Replay {
 
         self.fps = 1.0 / (delta * speedhack);
 
+        let old_pos = reader.stream_position()?;
+        let len = reader.seek(std::io::SeekFrom::End(0))?;
+        if old_pos != len {
+            reader.seek(std::io::SeekFrom::Start(old_pos))?;
+        }
+
         // 8 is how much space the delta and speedhack take up, 
         // 6 is how much space one click takes up (in bytes)
-        let clicks_len = (reader.stream_len()? - 8) / 6; 
+        let clicks_len = (len - 8) / 6; 
         self.clicks.reserve(clicks_len as usize);
 
         // Preallocate memory for reading hold and player 2 data

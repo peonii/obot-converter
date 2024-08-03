@@ -1,4 +1,3 @@
-#![feature(seek_stream_len)]
 pub mod formats;
 
 use std::io::Cursor;

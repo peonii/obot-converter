@@ -44,7 +44,14 @@ impl Replay {
         let replay_type: URLReplayType = small_buf[0].into();
 
         let click_size: u64 = if replay_type == URLReplayType::Both { 9 } else { 5 };
-        let clicks_len = (reader.stream_len()? - 5) / click_size;
+
+        let old_pos = reader.stream_position()?;
+        let len = reader.seek(std::io::SeekFrom::End(0))?;
+        if old_pos != len {
+            reader.seek(std::io::SeekFrom::Start(old_pos))?;
+        }
+
+        let clicks_len = (len - 5) / click_size;
 
         self.clicks.reserve(clicks_len as usize);
 
