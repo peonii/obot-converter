@@ -15,7 +15,7 @@ pub struct Converter {
 #[wasm_bindgen]
 pub enum Format {
     OmegaBot,
-    MHR,
+    MHRJson,
     Tasbot,
     MHRBinary,
     ZBot,
@@ -32,38 +32,35 @@ pub enum ConverterError {
 }
 
 #[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console, js_name = error)]
+    fn console_error(s: &str);
+}
+
+#[wasm_bindgen]
 impl Converter {
     pub fn load(&mut self, data: Vec<u8>, fmt: Format) -> Result<(), ConverterError> {
         let cursor = Cursor::new(data);
 
         self.loaded_replay.clear();
 
-        match fmt {
-            Format::PlainText => {
-                self.loaded_replay.parse_plain_text(cursor).unwrap()     
-            }
-            Format::Tasbot => {
-                self.loaded_replay.parse_tasbot(cursor).unwrap()
-            }
-            Format::ZBot => {
-                self.loaded_replay.parse_zbot(cursor).unwrap()
-            }
-            Format::OmegaBot => {
-                self.loaded_replay.parse_obot3(cursor).unwrap()
-            }
-            Format::MHR => {
-                self.loaded_replay.parse_mhr_json(cursor).unwrap()
-            }
-            Format::MHRBinary => {
-                self.loaded_replay.parse_mhr_binary(cursor).unwrap()
-            }
-            Format::URL => {
-                self.loaded_replay.parse_url(cursor).unwrap()
-            }
-            Format::OmegaBot2 => {
-                self.loaded_replay.parse_obot2(cursor).unwrap()
-            }
+        let result = match fmt {
+            Format::PlainText => self.loaded_replay.parse_plain_text(cursor),
+            Format::Tasbot => self.loaded_replay.parse_tasbot(cursor),
+            Format::ZBot => self.loaded_replay.parse_zbot(cursor),
+            Format::OmegaBot => self.loaded_replay.parse_obot3(cursor),
+            Format::OmegaBot2 => self.loaded_replay.parse_obot2(cursor),
+            Format::URL => self.loaded_replay.parse_url(cursor),
+            Format::MHRJson => self.loaded_replay.parse_mhr_json(cursor),
+            Format::MHRBinary => self.loaded_replay.parse_mhr_binary(cursor),
         };
+
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                console_error(&e.to_string());
+            }
+        }
 
         Ok(())
     }
@@ -84,40 +81,23 @@ impl Converter {
         let buffer = Vec::new();
         let mut cursor = Cursor::new(buffer);
 
-        match fmt {
-            Format::PlainText => {
-                self.loaded_replay.write_plain_text(&mut cursor)
-                    .unwrap();
-            }
-            Format::Tasbot => {
-                self.loaded_replay.write_tasbot(&mut cursor)
-                    .unwrap()
-            }
-            Format::ZBot => {
-                self.loaded_replay.write_zbot(&mut cursor)
-                    .unwrap()
-            }
-            Format::OmegaBot => {
-                self.loaded_replay.write_obot3(&mut cursor)
-                    .unwrap()
-            }
-            Format::MHR => {
-                self.loaded_replay.write_mhr_json(&mut cursor)
-                    .unwrap()
-            }
-            Format::MHRBinary => {
-                self.loaded_replay.write_mhr_binary(&mut cursor)
-                    .unwrap()
-            }
-            Format::URL => {
-                self.loaded_replay.write_url(&mut cursor)
-                    .unwrap()
-            }
-            Format::OmegaBot2 => {
-                self.loaded_replay.write_obot2(&mut cursor)
-                    .unwrap()
-            }
+        let result = match fmt {
+            Format::PlainText => self.loaded_replay.write_plain_text(&mut cursor),
+            Format::Tasbot => self.loaded_replay.write_tasbot(&mut cursor),
+            Format::ZBot => self.loaded_replay.write_zbot(&mut cursor),
+            Format::OmegaBot => self.loaded_replay.write_obot3(&mut cursor),
+            Format::OmegaBot2 => self.loaded_replay.write_obot2(&mut cursor),
+            Format::URL => self.loaded_replay.write_url(&mut cursor),
+            Format::MHRJson => self.loaded_replay.write_mhr_json(&mut cursor),
+            Format::MHRBinary => self.loaded_replay.write_mhr_binary(&mut cursor),
         };
+
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                console_error(&e.to_string());
+            }
+        }
 
         cursor.into_inner()
     }
