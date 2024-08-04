@@ -16,7 +16,7 @@ impl Replay {
         reader.read(&mut buf)?;
         let speedhack = f32::from_le_bytes(buf);
 
-        self.fps = 1.0 / (delta * speedhack);
+        self.fps = (1.0 / (delta * speedhack)).round();
 
         let old_pos = reader.stream_position()?;
         let len = reader.seek(std::io::SeekFrom::End(0))?;
