@@ -1,6 +1,6 @@
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 
 impl Replay {
@@ -28,6 +28,7 @@ impl Replay {
         // 6 is how much space one click takes up (in bytes)
         let clicks_len = (len - 8) / 6; 
         self.clicks.reserve(clicks_len as usize);
+        self.game_version = GameVersion::Version2113;
 
         // Preallocate memory for reading hold and player 2 data
         let mut small_buf = [0u8; 1];

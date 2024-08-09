@@ -17,23 +17,18 @@
         <option value="Tasbot">TASBot</option>
         <option value="ZBot">ZBot</option>
         <option value="PlainText">Plain Text</option>
+        <option value="YBot">yBot</option>
+        <option value="GDR">GDR</option>
+        <option value="GDRJson">GDR Json</option>
     </select>
 
     <p>Loaded Format: <span id="format"></span></p>
     <p>FPS: <span id="fps"></span></p>
     <p>Length: <span id="length"></span></p>
 
-    <select id="format-select">
-        <option value="OmegaBot">OmegaBot 3</option>
-        <option value="OmegaBot2">OmegaBot 2</option>
-        <option value="URL">Universal Replay (OmegaBot 1)</option>
-        <option value="MHRJson">MHR Json</option>
-        <option value="MHRBinary">MHR Binary</option>
-        <option value="Tasbot">TASBot</option>
-        <option value="ZBot">ZBot</option>
-        <option value="PlainText">Plain Text</option>
+    <select id="format-select" style="display: none;">
     </select>
-    <button id="convert-button">Convert</button>
+    <button id="convert-button" style="display: none;">Convert</button>
 
     <!-- Note the usage of `type=module` here as this is an ES6 module -->
     <script type="module">
@@ -44,7 +39,7 @@
       // will "boot" the module and make it ready to use. Currently browsers
       // don't support natively imported WebAssembly as an ES module, but
       // eventually the manual initialization won't be required!
-      import init, { Converter, Format } from './pkg/obot_converter.js';
+      import init, { Converter, Format, GameVersion } from './pkg/obot_converter.js';
 
       let converter = null;
 
@@ -68,6 +63,47 @@
         document.getElementById('fps').innerText = converter.get_fps().toString();
         document.getElementById('length').innerText = converter.length().toString();
         document.getElementById('format').innerText = Format[format];
+
+        document.getElementById('format-select').style.display = '';
+        document.getElementById('convert-button').style.display = '';
+        console.log(converter.game_version());
+        switch (converter.game_version()) {
+          case GameVersion['Any']:
+            document.getElementById('format-select').innerHTML = `
+              <option value="OmegaBot">OmegaBot 3</option>
+              <option value="OmegaBot2">OmegaBot 2</option>
+              <option value="URL">Universal Replay (OmegaBot 1)</option>
+              <option value="MHRJson">MHR Json</option>
+              <option value="MHRBinary">MHR Binary</option>
+              <option value="Tasbot">TASBot</option>
+              <option value="ZBot">ZBot</option>
+              <option value="PlainText">Plain Text</option>
+              <option value="YBot">yBot</option>
+              <option value="GDR">GDR</option>
+              <option value="GDRJson">GDR Json</option>
+            `
+            break;
+          case GameVersion['Version2113']:
+            document.getElementById('format-select').innerHTML = `
+              <option value="OmegaBot">OmegaBot 3</option>
+              <option value="OmegaBot2">OmegaBot 2</option>
+              <option value="URL">Universal Replay (OmegaBot 1)</option>
+              <option value="MHRJson">MHR Json</option>
+              <option value="MHRBinary">MHR Binary</option>
+              <option value="Tasbot">TASBot</option>
+              <option value="ZBot">ZBot</option>
+              <option value="PlainText">Plain Text</option>
+            `
+            break;
+          case GameVersion['Version2206']:
+            document.getElementById('format-select').innerHTML = `
+              <option value="PlainText">Plain Text</option>
+              <option value="YBot">yBot</option>
+              <option value="GDR">GDR</option>
+              <option value="GDRJson">GDR Json</option>
+            `
+            break;
+        }
       })
 
       document.getElementById('convert-button').addEventListener('click', async () => {
@@ -100,6 +136,15 @@
             break;
           case 'PlainText':
             filename += '.txt';
+            break;
+          case 'YBot':
+            filename += '.ybot';
+            break;
+          case 'GDR':
+            filename += '.gdr';
+            break;
+          case 'GDRJson':
+            filename += '.gdr.json';
             break;
         }
 

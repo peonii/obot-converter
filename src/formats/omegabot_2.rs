@@ -2,7 +2,7 @@ use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
 use serde::{Deserialize, Serialize};
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 enum OmegaBot2Location {
@@ -104,6 +104,7 @@ impl Replay {
         self.fps = replay.initial_fps;
 
         self.clicks.reserve(replay.clicks.len());
+        self.game_version = GameVersion::Version2113;
 
         replay.clicks.iter().try_for_each(|click| {
             self.clicks.push(click.try_into()?);

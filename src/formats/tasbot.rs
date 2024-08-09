@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::formats::replay::ClickType;
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 #[derive(Serialize, Deserialize)]
 struct TasbotReplay {
@@ -53,6 +53,7 @@ impl Replay {
                 }
             })
             .collect();
+        self.game_version = GameVersion::Version2113;
 
         Ok(())
     }

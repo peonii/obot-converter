@@ -16,7 +16,9 @@ pub enum ReplayError {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[wasm_bindgen]
 pub enum GameVersion {
+    Any,
     Version2113,
     Version2206
 }
@@ -24,6 +26,7 @@ pub enum GameVersion {
 impl Display for GameVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            GameVersion::Any => write!(f, "Any"),
             GameVersion::Version2113 => write!(f, "2.113"),
             GameVersion::Version2206 => write!(f, "2.206"),
         }

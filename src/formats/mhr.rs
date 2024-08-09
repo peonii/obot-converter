@@ -2,7 +2,7 @@ use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
 use serde::{Deserialize, Serialize};
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 #[derive(Serialize, Deserialize)]
 struct MHRReplay {
@@ -50,6 +50,7 @@ impl Replay {
 
         self.fps = replay.meta.fps;
         self.clicks = replay.events.into_iter().map(|click| click.into()).collect();
+        self.game_version = GameVersion::Version2113;
 
         Ok(())
     }

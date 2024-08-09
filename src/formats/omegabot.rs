@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::formats::replay::{Click, ClickType};
 
-use super::replay::{Replay, ReplayError};
+use super::replay::{GameVersion, Replay, ReplayError};
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Default, Debug)]
 enum OmegabotClickType {
@@ -76,6 +76,7 @@ impl Replay {
 
         self.fps = replay.initial_fps;
         self.clicks = replay.clicks.into_iter().map(|click| click.into()).collect();
+        self.game_version = GameVersion::Version2113;
 
         Ok(())
     }

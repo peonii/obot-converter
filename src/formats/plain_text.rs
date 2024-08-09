@@ -1,5 +1,5 @@
 use std::io::{BufRead, Read, Seek, Write};
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 
 impl Replay {
@@ -7,6 +7,7 @@ impl Replay {
         let reader = std::io::BufReader::new(reader);
         let mut lines = reader.lines();
 
+        self.game_version = GameVersion::Any;
         self.fps = lines
             .next()
             .ok_or(ReplayError::ParseError)?

@@ -1,6 +1,6 @@
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 #[derive(PartialEq)]
 enum URLReplayType {
@@ -38,6 +38,7 @@ impl Replay {
         let mut buf = [0u8; 4];
         reader.read(&mut buf)?;
         self.fps = f32::from_le_bytes(buf);
+        self.game_version = GameVersion::Version2113;
 
         let mut small_buf = [0u8; 1];
         reader.read(&mut small_buf)?;

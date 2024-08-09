@@ -1,6 +1,6 @@
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
-use super::replay::{Click, Replay, ReplayError};
+use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 static MHR_BINARY_HEADER: [u8; 8] = [0x48, 0x41, 0x43, 0x4B, 0x50, 0x52, 0x4F, 0x07];
 static MHR_BINARY_FOOTER: [u8; 16] = [0xFA, 0x67, 0x55, 0x5A, 0x8D, 0x95, 0x94, 0x07, 0xC9, 0x8C, 0xBA, 0x7F, 0x75, 0x9C, 0xEF, 0x3C];
@@ -8,6 +8,8 @@ static MHR_BINARY_FOOTER: [u8; 16] = [0xFA, 0x67, 0x55, 0x5A, 0x8D, 0x95, 0x94, 
 impl Replay {
     pub fn parse_mhr_binary(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let mut reader = BufReader::new(reader);
+
+        self.game_version = GameVersion::Version2113;
 
         let mut header_buf = [0u8; 8];
         reader.read(&mut header_buf)?;

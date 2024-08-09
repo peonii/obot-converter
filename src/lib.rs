@@ -2,7 +2,7 @@ pub mod formats;
 
 use std::io::Cursor;
 
-use formats::replay::{Click, Replay};
+use formats::replay::{Click, GameVersion, Replay};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
@@ -21,7 +21,10 @@ pub enum Format {
     ZBot,
     PlainText,
     URL,
-    OmegaBot2
+    OmegaBot2,
+    YBot,
+    GDR,
+    GDRJson
 }
 
 #[wasm_bindgen]
@@ -53,6 +56,9 @@ impl Converter {
             Format::URL => self.loaded_replay.parse_url(cursor),
             Format::MHRJson => self.loaded_replay.parse_mhr_json(cursor),
             Format::MHRBinary => self.loaded_replay.parse_mhr_binary(cursor),
+            Format::YBot => self.loaded_replay.parse_ybot2(cursor),
+            Format::GDR => self.loaded_replay.parse_gdr(cursor),
+            Format::GDRJson => self.loaded_replay.parse_gdr_json(cursor)
         };
 
         match result {
@@ -77,6 +83,10 @@ impl Converter {
         self.loaded_replay.clicks.clone()
     }
 
+    pub fn game_version(&self) -> GameVersion {
+        self.loaded_replay.game_version
+    }
+
     pub fn save(&self, fmt: Format) -> Vec<u8> {
         let buffer = Vec::new();
         let mut cursor = Cursor::new(buffer);
@@ -90,6 +100,9 @@ impl Converter {
             Format::URL => self.loaded_replay.write_url(&mut cursor),
             Format::MHRJson => self.loaded_replay.write_mhr_json(&mut cursor),
             Format::MHRBinary => self.loaded_replay.write_mhr_binary(&mut cursor),
+            Format::YBot => self.loaded_replay.write_ybot2(&mut cursor),
+            Format::GDR => self.loaded_replay.write_gdr(&mut cursor),
+            Format::GDRJson => self.loaded_replay.write_gdr_json(&mut cursor)
         };
 
         match result {
