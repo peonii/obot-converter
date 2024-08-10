@@ -12,6 +12,7 @@ members = [".", "bots/ybot_fmt"]
 
 [dependencies]
 bincode = "1.3.3"
+console_error_panic_hook = "0.1.7"
 dlhn = "0.1.6"
 rmp-serde = "1.3.0"
 serde = { version = "1.0.193", features = ["derive"] }

@@ -41,6 +41,7 @@ pub struct Replay {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[wasm_bindgen]
 pub enum ClickType {
     Click,
     Release,
@@ -78,7 +79,8 @@ impl ClickType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[wasm_bindgen]
 pub struct Click {
     pub frame: u32,
     pub p1: ClickType,

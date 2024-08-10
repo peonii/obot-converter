@@ -2,7 +2,7 @@ pub mod formats;
 
 use std::io::Cursor;
 
-use formats::replay::{GameVersion, Replay};
+use formats::replay::{Click, GameVersion, Replay};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
@@ -15,26 +15,26 @@ pub struct Converter {
 #[wasm_bindgen]
 pub enum Format {
     OmegaBot,
-    MHRJson,
-    Tasbot,
-    MHRBinary,
-    ZBot,
-    PlainText,
-    URL,
     OmegaBot2,
-    YBot,
-    GDR,
-    GDRJson,
+    URL,
+    MHRJson,
+    MHRBinary,
+    Tasbot,
+    ZBot,
     ReplayBot,
     Fembot,
-    YBot1,
     EchoOld,
     EchoNewJson,
     EchoNewBinary,
+    YBot1,
     XBot,
     Rush,
     KDBot,
-    XDBot
+    YBot,
+    GDR,
+    GDRJson,
+    XDBot,
+    PlainText,
 }
 
 #[wasm_bindgen]
@@ -107,6 +107,18 @@ impl Converter {
         self.loaded_replay.game_version
     }
 
+    pub fn clicks(&self) -> Vec<Click> {
+        self.loaded_replay.clicks.clone()
+    }
+
+    pub fn click_at(&self, idx: usize) -> Click {
+        self.loaded_replay.clicks[idx]
+    }
+
+    pub fn clicks_at_batch(&self, idx: usize, page: usize) -> Vec<Click> {
+        self.loaded_replay.clicks[idx..idx+page].to_vec()
+    }
+
     pub fn save(&self, fmt: Format) -> Vec<u8> {
         let buffer = Vec::new();
         let mut cursor = Cursor::new(buffer);
@@ -155,6 +167,8 @@ impl Converter {
 
 #[wasm_bindgen(start)]
 fn run() {
+    console_error_panic_hook::set_once();
+
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
     let _body = document.body().expect("document should have a body");

@@ -34,13 +34,19 @@ jobs:
       - name: Install WASM pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Run WASM pack
-        run: wasm-pack build --target web -d www/pkg
+        run: wasm-pack build -d www/src/lib/pkg
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install deps
+        run: bun install
+      - name: Run Bun
+        run: bun run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './www'
+          path: './www/build'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
