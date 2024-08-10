@@ -1,9 +1,10 @@
-use std::io::{Read, Seek, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
 use ybot_fmt::{Action, Meta, PlayerButton, TimedAction};
 
 use super::replay::{Click, GameVersion, Replay, ReplayError};
 
+static YBOT1_HEADER: [u8; 4] = [0x79, 0x62, 0x6F, 0x74];
 
 impl Replay {
     pub fn parse_ybot2(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
@@ -24,7 +25,11 @@ impl Replay {
             frame += action.delta;
 
             match action.action {
-                Action::Button(p1, hold, _) => {
+                Action::Button(p1, hold, b) => {
+                    if b != PlayerButton::Jump {
+                        continue;
+                    }
+
                     self.clicks.push(Click::from_hold(frame as u32, hold, !p1));
                 }
                 Action::FPS(_) => {
@@ -51,6 +56,60 @@ impl Replay {
                 last_frame = frame;
 
                 replay.add(TimedAction::new(delta.into(), Action::Button(!p2, hold, PlayerButton::Jump)))?;
+
+                Ok::<(), ReplayError>(())
+            })
+        })?;
+
+        Ok(())
+    }
+
+    pub fn parse_ybot1(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
+        let mut reader = BufReader::new(reader);
+
+        self.game_version = GameVersion::Version2113;
+
+        let mut buf = [0u8; 4];
+        reader.read(&mut buf)?;
+        if buf != YBOT1_HEADER {
+            return Err(ReplayError::ParseError);
+        }
+
+        reader.read(&mut buf)?;
+        self.fps = f32::from_le_bytes(buf);
+
+        reader.read(&mut buf)?;
+        let clicks_len = i32::from_le_bytes(buf);
+        self.clicks.reserve(clicks_len as usize);
+
+        for _ in 0..clicks_len {
+            reader.read(&mut buf)?;
+            let frame = u32::from_le_bytes(buf);
+
+            reader.read(&mut buf)?;
+            let state = u32::from_le_bytes(buf);
+
+            let hold = (state & 2) == 2;
+            let p2 = (state & 1) == 1;
+
+            self.clicks.push(Click::from_hold(frame, hold, p2));
+        }
+
+        Ok(())
+    }
+
+    pub fn write_ybot1(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
+        let mut writer = BufWriter::new(writer);
+
+        writer.write(&YBOT1_HEADER)?;
+        writer.write(&self.fps.to_le_bytes())?;
+        writer.write(&self.clicks.len().to_le_bytes())?;
+
+        self.clicks.iter().try_for_each(|click| {
+            click.apply_hold(|frame, hold, p2| {
+                writer.write(&frame.to_le_bytes())?;
+                let state: u32 = if hold { 2 } else { 0 } | if p2 { 1 } else { 0 };
+                writer.write(&state.to_le_bytes())?;
 
                 Ok::<(), ReplayError>(())
             })

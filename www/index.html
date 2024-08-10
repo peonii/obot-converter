@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
   </head>
   <body>
     <h1>GD Macro Converter</h1>
@@ -15,11 +15,21 @@
         <option value="MHRJson">MHR Json</option>
         <option value="MHRBinary">MHR Binary</option>
         <option value="Tasbot">TASBot</option>
-        <option value="ZBot">ZBot</option>
+        <option value="ZBot">zBot</option>
+        <option value="ReplayBot">ReplayBot</option>
+        <option value="KDBot">KD-Bot</option>
+        <option value="Rush">Rush</option>
+        <option value="EchoOld">Echo (Old, Json)</option>
+        <option value="EchoNewJson">Echo (New, Json)</option>
+        <option value="EchoNewBinary">Echo (New, Binary)</option>
+        <option value="XBot">xBot</option>
+        <option value="Fembot">Fembot</option>
         <option value="PlainText">Plain Text</option>
-        <option value="YBot">yBot</option>
+        <option value="YBot">yBot 2</option>
+        <option value="YBot1">yBot 1</option>
         <option value="GDR">GDR</option>
         <option value="GDRJson">GDR Json</option>
+        <option value="XDBot">XDBot</option>
     </select>
 
     <p>Loaded Format: <span id="format"></span></p>
@@ -77,10 +87,20 @@
               <option value="MHRBinary">MHR Binary</option>
               <option value="Tasbot">TASBot</option>
               <option value="ZBot">ZBot</option>
+              <option value="ReplayBot">ReplayBot</option>
+              <option value="KDBot">KD-Bot</option>
+              <option value="Rush">Rush</option>
+              <option value="EchoOld">Echo (Old, Json)</option>
+              <option value="EchoNewJson">Echo (New, Json)</option>
+              <option value="EchoNewBinary">Echo (New, Binary)</option>
+              <option value="XBot">xBot</option>
+              <option value="Fembot">Fembot</option>
               <option value="PlainText">Plain Text</option>
-              <option value="YBot">yBot</option>
+              <option value="YBot1">yBot 1</option>
+              <option value="YBot">yBot 2</option>
               <option value="GDR">GDR</option>
               <option value="GDRJson">GDR Json</option>
+              <option value="XDBot">XDBot</option>
             `
             break;
           case GameVersion['Version2113']:
@@ -92,15 +112,25 @@
               <option value="MHRBinary">MHR Binary</option>
               <option value="Tasbot">TASBot</option>
               <option value="ZBot">ZBot</option>
+              <option value="ReplayBot">ReplayBot</option>
+              <option value="KDBot">KD-Bot</option>
+              <option value="Rush">Rush</option>
+              <option value="EchoOld">Echo (Old, Json)</option>
+              <option value="EchoNewJson">Echo (New, Json)</option>
+              <option value="EchoNewBinary">Echo (New, Binary)</option>
+              <option value="XBot">xBot</option>
+              <option value="YBot1">yBot 1</option>
+              <option value="Fembot">Fembot</option>
               <option value="PlainText">Plain Text</option>
             `
             break;
           case GameVersion['Version2206']:
             document.getElementById('format-select').innerHTML = `
               <option value="PlainText">Plain Text</option>
-              <option value="YBot">yBot</option>
+              <option value="YBot">yBot 2</option>
               <option value="GDR">GDR</option>
               <option value="GDRJson">GDR Json</option>
+              <option value="XDBot">XDBot</option>
             `
             break;
         }
@@ -120,6 +150,7 @@
           case 'URL':
           case 'OmegaBot2':
           case 'OmegaBot':
+          case 'ReplayBot':
             filename += '.replay';
             break;
           case 'MHR':
@@ -145,6 +176,28 @@
             break;
           case 'GDRJson':
             filename += '.gdr.json';
+            break;
+          case 'KDBot':
+            filename += '.kd';
+            break;
+          case 'Rush':
+            filename += '.rsh';
+            break;
+          case 'EchoOld':
+          case 'EchoNewJson':
+          case 'EchoNewBinary':
+            filename += '.echo';
+            break;
+          case 'XBot':
+            filename += '.xbot';
+            break;
+          case 'YBot1':
+            break;
+          case 'XDBot':
+            filename += '.xd';
+            break;
+          case 'Fembot':
+            filename += '.freplay';
             break;
         }
 

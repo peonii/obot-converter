@@ -70,7 +70,7 @@ impl Replay {
                         click: match click.p1 {
                             ClickType::Click => 1,
                             ClickType::Release => 2,
-                            ClickType::Skip => 0
+                            ClickType::Skip => 0,
                         }
                     },
                     player_2: TasbotAction {
@@ -78,7 +78,7 @@ impl Replay {
                         click: match click.p2 {
                             ClickType::Click => 1,
                             ClickType::Release => 2,
-                            ClickType::Skip => 0
+                            ClickType::Skip => 0,
                         }
                     }
                 }

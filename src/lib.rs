@@ -2,7 +2,7 @@ pub mod formats;
 
 use std::io::Cursor;
 
-use formats::replay::{Click, GameVersion, Replay};
+use formats::replay::{GameVersion, Replay};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
@@ -24,7 +24,17 @@ pub enum Format {
     OmegaBot2,
     YBot,
     GDR,
-    GDRJson
+    GDRJson,
+    ReplayBot,
+    Fembot,
+    YBot1,
+    EchoOld,
+    EchoNewJson,
+    EchoNewBinary,
+    XBot,
+    Rush,
+    KDBot,
+    XDBot
 }
 
 #[wasm_bindgen]
@@ -58,7 +68,17 @@ impl Converter {
             Format::MHRBinary => self.loaded_replay.parse_mhr_binary(cursor),
             Format::YBot => self.loaded_replay.parse_ybot2(cursor),
             Format::GDR => self.loaded_replay.parse_gdr(cursor),
-            Format::GDRJson => self.loaded_replay.parse_gdr_json(cursor)
+            Format::GDRJson => self.loaded_replay.parse_gdr_json(cursor),
+            Format::ReplayBot => self.loaded_replay.parse_replaybot(cursor),
+            Format::YBot1 => self.loaded_replay.parse_ybot1(cursor),
+            Format::EchoOld => self.loaded_replay.parse_echo_old(cursor),
+            Format::EchoNewJson => self.loaded_replay.parse_echo_new(cursor),
+            Format::EchoNewBinary => self.loaded_replay.parse_echo_bin(cursor),
+            Format::Rush => self.loaded_replay.parse_rush(cursor),
+            Format::KDBot => self.loaded_replay.parse_kdbot(cursor),
+            Format::XBot => self.loaded_replay.parse_xbot(cursor),
+            Format::XDBot => self.loaded_replay.parse_xdbot(cursor),
+            Format::Fembot => self.loaded_replay.parse_fembot(cursor)
         };
 
         match result {
@@ -79,9 +99,9 @@ impl Converter {
         self.loaded_replay.clicks.len()
     }
 
-    pub fn clicks(&self) -> Vec<Click> {
-        self.loaded_replay.clicks.clone()
-    }
+    // pub fn clicks(&self) -> Vec<Click> {
+    //     self.loaded_replay.clicks.clone()
+    // }
 
     pub fn game_version(&self) -> GameVersion {
         self.loaded_replay.game_version
@@ -102,7 +122,17 @@ impl Converter {
             Format::MHRBinary => self.loaded_replay.write_mhr_binary(&mut cursor),
             Format::YBot => self.loaded_replay.write_ybot2(&mut cursor),
             Format::GDR => self.loaded_replay.write_gdr(&mut cursor),
-            Format::GDRJson => self.loaded_replay.write_gdr_json(&mut cursor)
+            Format::GDRJson => self.loaded_replay.write_gdr_json(&mut cursor),
+            Format::ReplayBot => self.loaded_replay.write_replaybot(&mut cursor),
+            Format::YBot1 => self.loaded_replay.write_ybot1(&mut cursor),
+            Format::EchoOld => self.loaded_replay.write_echo_old(&mut cursor),
+            Format::EchoNewJson => self.loaded_replay.write_echo_new(&mut cursor),
+            Format::EchoNewBinary => self.loaded_replay.write_echo_bin(&mut cursor),
+            Format::Rush => self.loaded_replay.write_rush(&mut cursor),
+            Format::KDBot => self.loaded_replay.write_kdbot(&mut cursor),
+            Format::XBot => self.loaded_replay.write_xbot(&mut cursor),
+            Format::XDBot => self.loaded_replay.write_xdbot(&mut cursor),
+            Format::Fembot => self.loaded_replay.write_fembot(&mut cursor)
         };
 
         match result {
