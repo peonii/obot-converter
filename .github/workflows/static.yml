@@ -39,8 +39,10 @@ jobs:
         uses: oven-sh/setup-bun@v2
       - name: Install deps
         run: bun install
+        working-directory: www
       - name: Run Bun
         run: bun run build
+        working-directory: www
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
