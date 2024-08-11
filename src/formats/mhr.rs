@@ -83,8 +83,13 @@ impl Replay {
             }
         };
 
-        serde_json::to_writer(&mut writer, &replay)
-            .map_err(|_| ReplayError::WriteError)?;
+        if self.settings.beautified_json {
+            serde_json::to_writer_pretty(&mut writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        } else {
+            serde_json::to_writer(&mut writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        }
 
         Ok(())
     }

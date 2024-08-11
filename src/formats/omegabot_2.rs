@@ -83,7 +83,7 @@ impl TryFrom<&OmegaBot2Click> for Click {
 
     fn try_from(value: &OmegaBot2Click) -> Result<Self, Self::Error> {
         let frame = match value.location {
-            OmegaBot2Location::Frame(f) => Ok(f + 1),
+            OmegaBot2Location::Frame(f) => Ok(f),
             OmegaBot2Location::XPos(_) => Err(ReplayError::ParseError)
         }?;
 
@@ -98,6 +98,8 @@ impl Replay {
     pub fn parse_obot2(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let reader = BufReader::new(reader);
 
+        let offset = if self.settings.auto_offset { 1 } else { 0 };
+
         let replay: OmegaBot2Replay = bincode::deserialize_from(reader)
             .map_err(|_| ReplayError::ParseError)?;
 
@@ -107,7 +109,9 @@ impl Replay {
         self.game_version = GameVersion::Version2113;
 
         replay.clicks.iter().try_for_each(|click| {
-            self.clicks.push(click.try_into()?);
+            let mut c: Click = click.try_into()?;
+            c.frame += offset;
+            self.clicks.push(c);
 
             Ok::<(), ReplayError>(())
         })?;
@@ -117,6 +121,8 @@ impl Replay {
 
     pub fn write_obot2(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
+
+        let offset = if self.settings.auto_offset { 1 } else { 0 };
 
         let mut clicks = Vec::new();
         self.clicks.iter().try_for_each(|click| {
@@ -134,7 +140,7 @@ impl Replay {
                 }
 
                 clicks.push(OmegaBot2Click {
-                    location: OmegaBot2Location::Frame(frame - 1),
+                    location: OmegaBot2Location::Frame(frame - offset),
                     click_type
                 });
 

@@ -3,6 +3,8 @@ use std::fmt::Display;
 use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use crate::Settings;
+
 #[derive(Debug, Error)]
 pub enum ReplayError {
     #[error("Failed to parse replay")]
@@ -37,7 +39,8 @@ impl Display for GameVersion {
 pub struct Replay {
     pub fps: f32,
     pub clicks: Vec<Click>,
-    pub game_version: GameVersion
+    pub game_version: GameVersion,
+    pub settings: Settings
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -114,16 +117,17 @@ impl Click {
 
 impl Default for Replay {
     fn default() -> Self {
-        Self::new(60.0, GameVersion::Version2113)
+        Self::new(60.0, GameVersion::Version2113, Settings::default())
     }
 }
 
 impl Replay {
-    pub fn new(fps: f32, game_version: GameVersion) -> Self {
+    pub fn new(fps: f32, game_version: GameVersion, settings: Settings) -> Self {
         Self {
             fps,
             clicks: vec![],
-            game_version
+            game_version,
+            settings
         }
     }
 

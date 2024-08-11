@@ -136,8 +136,13 @@ impl Replay {
     pub fn write_gdr_json(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let replay = GDRReplay::try_from(self)?;
 
-        serde_json::to_writer_pretty(writer, &replay)
-            .map_err(|_| ReplayError::WriteError)?;
+        if self.settings.beautified_json {
+            serde_json::to_writer_pretty(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        } else {
+            serde_json::to_writer(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        }
 
         Ok(())
     }

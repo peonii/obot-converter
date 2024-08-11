@@ -4,6 +4,7 @@
 	import ClickView from '../components/ClickView.svelte';
 	import ClickTable from '../components/ClickTable.svelte';
 	import ReplayView from '../components/ReplayView.svelte';
+	import SettingsMenu from '../components/SettingsMenu.svelte';
 
     let converter: Converter;
 
@@ -17,6 +18,14 @@
         format: number;
         length: number;
     } | null;
+
+    let settings: Settings = {
+        autoOffset: true,
+        legacyFormats: false,
+        fancyJson: true,
+        plainTextEditor: false,
+        crossVersionConverting: false
+    }
 
     $: replayName = fileToLoad?.name.split('.')[0];
 
@@ -68,7 +77,7 @@
 <div class="bg-black min-h-screen w-full flex flex-col justify-center items-center gap-4">
     {#if isLoaded && replayData}
         <h1 class="text-white font-bold text-4xl">{replayName}</h1>
-        <ReplayView converter={converter} replayData={replayData} {replayName} />
+        <ReplayView converter={converter} {settings} replayData={replayData} {replayName} />
     {:else}
     <h1 class="text-white font-bold text-4xl">Load file</h1>
     <input on:change={handleChange} type="file" id="replay-input" class="fixed opacity-0 top-0 left-0" bind:files={filesToLoad} />
@@ -99,4 +108,6 @@
         </div>
     {/if}
     {/if}
+
+    <SettingsMenu bind:settings {converter} />
 </div>

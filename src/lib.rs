@@ -7,9 +7,26 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
+#[derive(Clone, Copy, PartialEq)]
+pub struct Settings {
+    pub auto_offset: bool,
+    pub beautified_json: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            auto_offset: true,
+            beautified_json: true
+        }
+    }
+}
+
+#[wasm_bindgen]
 #[derive(Clone)]
 pub struct Converter {
-    loaded_replay: Replay
+    loaded_replay: Replay,
+    pub settings: Settings
 }
 
 #[wasm_bindgen]
@@ -59,6 +76,7 @@ impl Converter {
         let cursor = Cursor::new(data);
 
         self.loaded_replay.clear();
+        self.loaded_replay.settings = self.settings;
 
         let result = match fmt {
             Format::PlainText => self.loaded_replay.parse_plain_text(cursor),
@@ -102,6 +120,14 @@ impl Converter {
         self.loaded_replay.fps = fps;
     }
 
+    pub fn set_setting_beautify_json(&mut self, value: bool) {
+        self.settings.beautified_json = value;
+    }
+
+    pub fn set_setting_auto_offset(&mut self, value: bool) {
+        self.settings.auto_offset = value;
+    }
+
     pub fn length(&self) -> usize {
         self.loaded_replay.clicks.len()
     }
@@ -120,6 +146,19 @@ impl Converter {
 
     pub fn click_at(&self, idx: usize) -> Click {
         self.loaded_replay.clicks[idx]
+    }
+
+    pub fn offset_all_by(&mut self, offset: i32) {
+        let clicks_old = self.loaded_replay.clicks.clone();
+
+        self.loaded_replay.clicks = clicks_old.into_iter().map(|click| {
+            let new_frame = if offset < -(click.frame as i32) { 0 } else { ((click.frame as i32) + offset) as u32 };
+
+            Click {
+                frame: new_frame,
+                ..click
+            }
+        }).collect();
     }
 
     pub fn clicks_at_batch(&self, idx: usize, page: usize) -> Vec<Click> {
@@ -280,9 +319,14 @@ impl Converter {
             .collect();
     }
 
-    pub fn save(&self, fmt: Format) -> Vec<u8> {
+    pub fn save(&mut self, fmt: Format) -> Vec<u8> {
         let buffer = Vec::new();
         let mut cursor = Cursor::new(buffer);
+
+        self.loaded_replay.settings = self.settings;
+        if self.settings.beautified_json {
+            console_log("is beautified");
+        }
 
         let result = match fmt {
             Format::PlainText => self.loaded_replay.write_plain_text(&mut cursor),
@@ -321,7 +365,8 @@ impl Converter {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Converter {
         Converter {
-            loaded_replay: Replay::default()
+            loaded_replay: Replay::default(),
+            settings: Settings::default()
         }
     }
 }

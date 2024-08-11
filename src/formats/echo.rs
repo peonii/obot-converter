@@ -177,8 +177,13 @@ impl Replay {
             })
         })?;
 
-        serde_json::to_writer_pretty(writer, &replay)
-            .map_err(|_| ReplayError::ParseError)?;
+        if self.settings.beautified_json {
+            serde_json::to_writer_pretty(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        } else {
+            serde_json::to_writer(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        }
     
         Ok(())
     }
@@ -203,8 +208,13 @@ impl Replay {
             })
         })?;
 
-        serde_json::to_writer_pretty(writer, &replay)
-            .map_err(|_| ReplayError::ParseError)?;
+        if self.settings.beautified_json {
+            serde_json::to_writer_pretty(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        } else {
+            serde_json::to_writer(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        }
     
         Ok(())
     }

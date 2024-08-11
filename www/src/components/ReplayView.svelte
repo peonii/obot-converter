@@ -2,7 +2,7 @@
     import { Converter, Click, ClickType, formats, Format, GameVersion } from '$lib';
 	import { writable, type Writable } from 'svelte/store';
 	import ClickTable from './ClickTable.svelte';
-    import { ArrowDownWideNarrow, ArrowUpDown, RefreshCcw, Trash2 } from "lucide-svelte";
+    import { ArrowDownWideNarrow, ArrowUpDown, ChevronsDown, RefreshCcw, Trash2 } from "lucide-svelte";
 
     export let converter: Converter;
     export let replayData: {
@@ -11,6 +11,7 @@
         length: number;
     }
     export let replayName: string;
+    export let settings: Settings;
 
     $: replayFormatPretty = formats[(replayData?.format ?? 0) as keyof typeof formats][0];
 
@@ -67,18 +68,33 @@
         document.body.removeChild(link);
     }
 
-    function allowedFormats() {
+    let allowedFormats: { [key: number]: [string, string, number, boolean] } = {};
+    $: refreshFormats();
+    $: if (settings.crossVersionConverting || settings.legacyFormats) refreshFormats();
+    $: if (!settings.crossVersionConverting && !settings.legacyFormats) refreshFormats();
+
+    function refreshFormats() {
         if (formats[replayData.format][2] === GameVersion.Any) {
-            return formats;
+            allowedFormats = formats;
         }
 
         // Filter out formats that are not compatible with the game version
         const entries = Object.entries(formats);
-        const allowed = entries.filter(([idx, [format, pretty, version]]) => {
-            return version === formats[replayData.format][2] || version === GameVersion.Any;
+        const allowed = entries.filter(([idx, [format, pretty, version, legacy]]) => {
+            if (settings.crossVersionConverting) {
+                return settings.legacyFormats || !legacy;
+            }
+
+            let isAllowed = version === formats[replayData.format][2] || version === GameVersion.Any;
+
+            if (!settings.legacyFormats) {
+                isAllowed = isAllowed && !legacy;
+            }
+
+            return isAllowed;
         })
 
-        return Object.fromEntries(allowed);
+        allowedFormats = Object.fromEntries(allowed);
     }
 
     function handleFPSChange(event: Event) {
@@ -123,11 +139,27 @@
         converter.flip_up_down();
         refreshClicks();
     }
+
+    export let offset: number;
+
+    function handleOffsetChange(event: Event) {
+        const target = event.target as HTMLInputElement;
+
+        if (isNaN(parseInt(target.value))) {
+            target.value = "0";
+            return;
+        }
+    }
+
+    function offsetAll() {
+        converter.offset_all_by(offset);
+        refreshClicks();
+    }
 </script>
 
 
 <div class="flex gap-4">
-    <ClickTable converter={converter} {refreshInputCount} {refreshClicks} {currentIdx} {pageSize} {clicks} {setCurrentIdx} {setPageSize} />
+    <ClickTable converter={converter} {refreshInputCount} {refreshClicks} {currentIdx} {pageSize} {clicks} {setCurrentIdx} {setPageSize} {settings} />
     <div class="flex flex-col text-xl">
         <div class="flex gap-2 py-1">
             <span class="text-neutral-400 font">Format</span>
@@ -152,6 +184,12 @@
                 </button>
             </div>
             <div class="flex gap-2">
+                <button on:click={offsetAll} class="bg-amber-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-amber-700 inline-flex gap-2 items-center">
+                    <ChevronsDown size="20" /> Offset
+                </button>
+                <input class="text-white py-1 px-2 font-bold bg-neutral-900 focus:bg-neutral-800 rounded-md focus:outline-none" bind:value={offset} on:change={handleOffsetChange} />
+            </div>
+            <div class="flex gap-2">
                 <button on:click={flipP1P2} class="bg-amber-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-amber-700 inline-flex gap-2 items-center">
                     <RefreshCcw size="20" /> Flip P1/P2
                 </button>
@@ -170,7 +208,7 @@
             <div class="flex gap-2">
                 <button on:click={saveReplay} class="bg-green-800 text-white rounded-md px-6 py-2 font-medium hover:bg-green-700">Save</button>
                 <select bind:value={selectedSaveFormat} class="bg-neutral-800 text-white rounded-md px-6 py-2 font-medium hover:bg-neutral-700">
-                    {#each Object.entries(allowedFormats()) as [format, pretty]}
+                    {#each Object.entries(allowedFormats) as [format, pretty]}
                         <option value={format}>{pretty[0]}</option>
                     {/each}
                 </select>

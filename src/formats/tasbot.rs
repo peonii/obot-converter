@@ -35,11 +35,13 @@ impl Replay {
         let replay: TasbotReplay = simd_json::from_reader(reader)
             .map_err(|_| ReplayError::ParseError)?;
 
+        let offset = if self.settings.auto_offset { 1 } else { 0 };
+
         self.fps = replay.fps;
         self.clicks = replay.clicks.into_iter()
             .map(|click| {
                 Click {
-                    frame: click.frame + 1,
+                    frame: click.frame + offset,
                     p1: match click.player_1.click {
                         1 => ClickType::Click,
                         2 => ClickType::Release,
@@ -61,10 +63,12 @@ impl Replay {
     pub fn write_tasbot(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let writer = BufWriter::new(writer);
 
+        let offset = if self.settings.auto_offset { 1 } else { 0 };
+
         let clicks = self.clicks.iter()
             .map(|click| {
                 TasbotClick {
-                    frame: click.frame - 1,
+                    frame: click.frame - offset,
                     player_1: TasbotAction {
                         x_position: 0.0,
                         click: match click.p1 {
@@ -90,8 +94,13 @@ impl Replay {
             clicks
         };
 
-        simd_json::to_writer(writer, &replay)
-            .map_err(|_| ReplayError::WriteError)?;
+        if self.settings.beautified_json {
+            serde_json::to_writer_pretty(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        } else {
+            serde_json::to_writer(writer, &replay)
+                .map_err(|_| ReplayError::WriteError)?;
+        }
 
         Ok(())
     }

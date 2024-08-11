@@ -12,6 +12,8 @@
 
     export let setCurrentIdx: (idx: number) => void;
     export let setPageSize: (size: number) => void;
+    export let settings: Settings;
+
     let top = 0;
     let bottom = 0;
     let clickList: HTMLElement;
@@ -110,6 +112,9 @@
     })
 </script>
 
+{#if settings.plainTextEditor}
+<h1 class="text-5xl text-white">not implemented LMFAO</h1>
+{:else}
 <table bind:this={viewport} id="click-table" on:scroll={handleScroll} class="w-[600px] h-[400px] relative bg-neutral-900 rounded-lg table-fixed border-collapse flex flex-col overflow-y-scroll justify-start scrollbar">
     <thead class="text-white font-bold px-2 text-center sticky w-full z-10 top-0 bg-neutral-900/50 backdrop-blur-md">
         <tr class="flex w-full text-xl border-b border-neutral-700 py-4">
@@ -129,6 +134,7 @@
         {/each}
     </tbody>
 </table>
+{/if}
 
 
 <style>
