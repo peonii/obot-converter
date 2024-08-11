@@ -38,19 +38,29 @@
 
         const previousIdx = currentIdx;
 
-        let i = 0;
         let y = 0;
 
-        while (i < converter.length()) {
-            if (y + rowHeight > scrollTop) {
-                setCurrentIdx(i);
-                top = y;
-                break;
-            }
+        // while (i < converter.length()) {
+        //     if (y + rowHeight > scrollTop) {
+        //         setCurrentIdx(i);
+        //         top = y;
+        //         break;
+        //     }
 
-            y += rowHeight;
-            i++;
+        //     y += rowHeight;
+        //     i++;
+        // }
+
+        let i = Math.ceil(scrollTop / rowHeight);
+        if (i < converter.length()) {
+            setCurrentIdx(i);
+            top = i * rowHeight;
+            y = top;
+        } else {
+            i = converter.length();
+            y  = i * rowHeight;
         }
+
 
         while (i < converter.length()) {
             y += rowHeight;

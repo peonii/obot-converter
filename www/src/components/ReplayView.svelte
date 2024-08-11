@@ -2,7 +2,7 @@
     import { Converter, Click, ClickType, formats, Format, GameVersion } from '$lib';
 	import { writable, type Writable } from 'svelte/store';
 	import ClickTable from './ClickTable.svelte';
-    import { Trash2 } from "lucide-svelte";
+    import { ArrowDownWideNarrow, ArrowUpDown, RefreshCcw, Trash2 } from "lucide-svelte";
 
     export let converter: Converter;
     export let replayData: {
@@ -33,12 +33,16 @@
     function setPageSize(size: number) {
         if (size < 1) {
             size = 1;
+        } else if (size > 20) {
+            size = 20;
         }
         pageSize = size;
     }
 
     function refreshClicks() {
-        if (currentIdx +  pageSize > converter.length()) {
+        console.log('loading clicks at', currentIdx, pageSize);
+
+        if (currentIdx + pageSize > converter.length()) {
             setCurrentIdx(converter.length() - pageSize);
         }
 
@@ -103,6 +107,22 @@
         converter.sort();
         refreshClicks();
     }
+
+    function removeAllPlayer(p2: boolean) {
+        converter.remove_all_player_inputs(p2);
+        refreshClicks();
+        refreshInputCount();
+    }
+
+    function flipP1P2() {
+        converter.flip_p1_p2();
+        refreshClicks();
+    }
+
+    function flipUpDown() {
+        converter.flip_up_down();
+        refreshClicks();
+    }
 </script>
 
 
@@ -124,11 +144,27 @@
         <div class="h-max flex-grow"></div>
         <div class="flex flex-col gap-2">
             <div class="flex gap-2">
+                <button on:click={() => removeAllPlayer(false)} class="bg-red-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-red-700 inline-flex gap-2 items-center">
+                    Remove all P1
+                </button>
+                <button on:click={() => removeAllPlayer(true)} class="bg-red-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-red-700 inline-flex gap-2 items-center">
+                    Remove all P2
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button on:click={flipP1P2} class="bg-amber-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-amber-700 inline-flex gap-2 items-center">
+                    <RefreshCcw size="20" /> Flip P1/P2
+                </button>
+                <button on:click={flipUpDown} class="bg-amber-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-amber-700 inline-flex gap-2 items-center">
+                    <ArrowUpDown size="20" /> Flip Up/Down
+                </button>
+            </div>
+            <div class="flex gap-2">
                 <button on:click={cleanMacro} class="bg-red-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-red-700 inline-flex gap-2 items-center">
                     <Trash2 size="20" /> Clean
                 </button>
-                <button on:click={sortMacro} class="bg-neutral-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-neutral-700 inline-flex gap-2 items-center">
-                    Sort
+                <button on:click={sortMacro} class="bg-blue-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-blue-700 inline-flex gap-2 items-center">
+                    <ArrowDownWideNarrow size="20" /> Sort
                 </button>
             </div>
             <div class="flex gap-2">

@@ -123,6 +123,10 @@ impl Converter {
     }
 
     pub fn clicks_at_batch(&self, idx: usize, page: usize) -> Vec<Click> {
+        if self.loaded_replay.clicks.len() == 0 {
+            return vec![];
+        }
+
         self.loaded_replay.clicks[idx..idx+page].to_vec()
     }
 
@@ -210,6 +214,70 @@ impl Converter {
         });
 
         console_log("Successfully sorted inputs");
+    }
+
+    pub fn remove_all_player_inputs(&mut self, player_2: bool) {
+        let clicks_old = self.loaded_replay.clicks.clone();
+
+        self.loaded_replay.clicks = clicks_old.into_iter()
+            .map(|click| {
+                let mut new_click = click;
+                
+                if player_2 {
+                    new_click.p2 = ClickType::Skip;
+                } else {
+                    new_click.p1 = ClickType::Skip;
+                }
+
+                return new_click;
+            })
+            .filter(|click| {
+                if click.p1.is_skip() && click.p2.is_skip() {
+                    console_log(&format!("CLEANED {} - removed input as both p1 and p2 were skips", click.frame));
+                    return false;
+                }
+
+                return true;
+            })
+            .collect();
+    }
+
+    pub fn flip_p1_p2(&mut self) {
+        let clicks_old = self.loaded_replay.clicks.clone();
+
+        self.loaded_replay.clicks = clicks_old.into_iter()
+            .map(|click| {
+                let mut new_click = click;
+                
+                new_click.p2 = click.p1;
+                new_click.p1 = click.p2;
+
+                return new_click;
+            })
+            .collect();
+    }
+
+    pub fn flip_up_down(&mut self) {
+        let clicks_old = self.loaded_replay.clicks.clone();
+
+        self.loaded_replay.clicks = clicks_old.into_iter()
+            .map(|click| {
+                let mut new_click = click;
+                
+                new_click.p1 = match click.p1 {
+                    ClickType::Skip => ClickType::Skip,
+                    ClickType::Click => ClickType::Release,
+                    ClickType::Release => ClickType::Click
+                };
+                new_click.p2 = match click.p2 {
+                    ClickType::Skip => ClickType::Skip,
+                    ClickType::Click => ClickType::Release,
+                    ClickType::Release => ClickType::Click
+                };
+
+                return new_click;
+            })
+            .collect();
     }
 
     pub fn save(&self, fmt: Format) -> Vec<u8> {
