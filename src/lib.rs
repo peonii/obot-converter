@@ -2,7 +2,7 @@ pub mod formats;
 
 use std::io::Cursor;
 
-use formats::replay::{Click, GameVersion, Replay};
+use formats::replay::{Click, ClickType, GameVersion, Replay};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
@@ -48,6 +48,9 @@ pub enum ConverterError {
 extern "C" {
     #[wasm_bindgen(js_namespace = console, js_name = error)]
     fn console_error(s: &str);
+
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn console_log(s: &str);
 }
 
 #[wasm_bindgen]
@@ -95,6 +98,10 @@ impl Converter {
         self.loaded_replay.fps
     }
 
+    pub fn set_fps(&mut self, fps: f32) {
+        self.loaded_replay.fps = fps;
+    }
+
     pub fn length(&self) -> usize {
         self.loaded_replay.clicks.len()
     }
@@ -117,6 +124,92 @@ impl Converter {
 
     pub fn clicks_at_batch(&self, idx: usize, page: usize) -> Vec<Click> {
         self.loaded_replay.clicks[idx..idx+page].to_vec()
+    }
+
+    pub fn replace_frame_at(&mut self, idx: usize, frame: u32) {
+        self.loaded_replay.clicks[idx].frame = frame;
+    }
+
+    pub fn insert_empty_at(&mut self, idx: usize, frame: u32) {
+        self.loaded_replay.clicks.insert(idx, Click {
+            frame,
+            p1: ClickType::Skip,
+            p2: ClickType::Skip
+        })
+    }
+
+    pub fn remove_at(&mut self, idx: usize) {
+        self.loaded_replay.clicks.remove(idx);
+    }
+
+    pub fn toggle_click_at(&mut self, idx: usize, player_2: bool) {
+        if player_2 {
+            self.loaded_replay.clicks[idx].p2 = self.loaded_replay.clicks[idx].p2.toggle();
+        } else {
+            self.loaded_replay.clicks[idx].p1 = self.loaded_replay.clicks[idx].p1.toggle();
+        }
+    }
+
+    pub fn clean(&mut self) {
+        let mut current_click_state_p1 = false;
+        let mut current_click_state_p2 = false;
+
+        let clicks_old = self.loaded_replay.clicks.clone();
+        self.loaded_replay.clicks = clicks_old.into_iter().map(|click| {
+            let mut new_click = click;
+            
+            if click.p1.is_click() {
+                let valid = if !current_click_state_p1 { true } else { false };
+                current_click_state_p1 = if valid { true } else { current_click_state_p1 };
+                if !valid {
+                    console_log(&format!("CLEANED {} - turned reduntant p1 click into skip", click.frame));
+                    new_click.p1 = ClickType::Skip;   
+                }
+            } else if click.p1.is_release() {
+                let valid = if current_click_state_p1 { true } else { false };
+                current_click_state_p1 = if valid { false } else { current_click_state_p1 };
+                if !valid {
+                    console_log(&format!("CLEANED {} - turned reduntant p1 release into skip", click.frame));
+                    new_click.p1 = ClickType::Skip;   
+                }
+            }
+
+            if click.p2.is_click() {
+                let valid = if !current_click_state_p2 { true } else { false };
+                current_click_state_p2 = if valid { true } else { current_click_state_p2 };
+                if !valid {
+                    console_log(&format!("CLEANED {} - turned reduntant p2 click into skip", click.frame));
+                    new_click.p2 = ClickType::Skip;   
+                }
+            } else if click.p2.is_release() {
+                let valid = if current_click_state_p2 { true } else { false };
+                current_click_state_p2 = if valid { false } else { current_click_state_p2 };
+                if !valid {
+                    console_log(&format!("CLEANED {} - turned reduntant p2 release into skip", click.frame));
+                    new_click.p2 = ClickType::Skip;   
+                }
+            }
+
+            return new_click;
+        })
+        .filter(|click| {
+            if click.p1.is_skip() && click.p2.is_skip() {
+                console_log(&format!("CLEANED {} - removed input as both p1 and p2 were skips", click.frame));
+                return false;
+            }
+
+            return true;
+        }).collect();
+
+        console_log("Successfully cleaned replay");
+    }
+
+    pub fn sort(&mut self) {
+        self.loaded_replay.clicks.sort_unstable_by(|c1, c2| {
+            c1.frame.cmp(&c2.frame)
+        });
+
+        console_log("Successfully sorted inputs");
     }
 
     pub fn save(&self, fmt: Format) -> Vec<u8> {

@@ -34,13 +34,13 @@ impl Replay {
         let mut small_buf = [0u8; 1];
 
         for _ in 0..clicks_len {
-            reader.read(&mut buf)?;
+            reader.read_exact(&mut buf)?;
             let frame = i32::from_le_bytes(buf);
 
-            reader.read(&mut small_buf)?;
+            reader.read_exact(&mut small_buf)?;
             let hold = small_buf[0] == 0x31;
 
-            reader.read(&mut small_buf)?;
+            reader.read_exact(&mut small_buf)?;
             let player_2 = small_buf[0] == 0x31;
             
             self.clicks.push(

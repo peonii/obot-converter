@@ -1,6 +1,8 @@
 <script lang="ts">
     import { Converter, Click, ClickType, formats, Format, GameVersion } from '$lib';
+	import { writable, type Writable } from 'svelte/store';
 	import ClickTable from './ClickTable.svelte';
+    import { Trash2 } from "lucide-svelte";
 
     export let converter: Converter;
     export let replayData: {
@@ -13,6 +15,37 @@
     $: replayFormatPretty = formats[(replayData?.format ?? 0) as keyof typeof formats][0];
 
     let selectedSaveFormat = Format.PlainText;
+
+    let currentIdx = 0;
+    let pageSize = 20;
+    let clicks: Click[] = [];
+
+    function setCurrentIdx(idx: number) {
+        if (idx < 0) {
+            currentIdx = 0;
+        } else if (idx > converter.length() - pageSize) {
+            currentIdx = converter.length() - pageSize;
+        } else {
+            currentIdx = idx;
+        }
+    }
+
+    function setPageSize(size: number) {
+        if (size < 1) {
+            size = 1;
+        }
+        pageSize = size;
+    }
+
+    function refreshClicks() {
+        if (currentIdx +  pageSize > converter.length()) {
+            setCurrentIdx(converter.length() - pageSize);
+        }
+
+        clicks = converter.clicks_at_batch(currentIdx, pageSize);
+        //console.log('Loaded clicks at', currentIdx, pageSize);
+    }
+
 
     function saveReplay() {
         const data = converter.save(selectedSaveFormat);
@@ -43,32 +76,68 @@
 
         return Object.fromEntries(allowed);
     }
+
+    function handleFPSChange(event: Event) {
+        const target = event.target as HTMLInputElement;
+
+        if (isNaN(parseInt(target.value))) {
+            target.value = "60";
+            return;
+        }
+
+        converter.set_fps(parseInt(target.value));
+        replayData.fps = parseInt(target.value);
+    }
+
+    function refreshInputCount() {
+        replayData.length = converter.length();
+    }
+
+    function cleanMacro() {
+        converter.clean();
+        refreshClicks();
+    }
+
+    function sortMacro() {
+        converter.sort();
+        refreshClicks();
+    }
 </script>
 
 
 <div class="flex gap-4">
-    <ClickTable converter={converter} />
-    <div class="flex flex-col gap-2 text-xl">
-        <div class="flex gap-2">
+    <ClickTable converter={converter} {refreshInputCount} {refreshClicks} {currentIdx} {pageSize} {clicks} {setCurrentIdx} {setPageSize} />
+    <div class="flex flex-col text-xl">
+        <div class="flex gap-2 py-1">
             <span class="text-neutral-400 font">Format</span>
             <span class="text-white font-bold">{replayFormatPretty}</span>
         </div>
-        <div class="flex gap-2">
-            <span class="text-neutral-400 font">FPS</span>
-            <span class="text-white font-bold">{replayData?.fps}</span>
+        <div class="flex">
+            <span class="text-neutral-400 font py-1">FPS</span>
+            <input class="text-white py-1 px-1 mx-1 font-bold bg-transparent focus:bg-neutral-950 rounded-md focus:outline-none" bind:value={replayData.fps} on:change={handleFPSChange} />
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 py-1">
             <span class="text-neutral-400 font">Inputs</span>
             <span class="text-white font-bold">{replayData?.length}</span>
         </div>
         <div class="h-max flex-grow"></div>
-        <div class="flex gap-4">
-            <button on:click={saveReplay} class="bg-neutral-800 text-white rounded-md px-6 py-2 font-medium hover:bg-neutral-700">Save</button>
-            <select bind:value={selectedSaveFormat} class="bg-neutral-800 text-white rounded-md px-6 py-2 font-medium hover:bg-neutral-700">
-                {#each Object.entries(allowedFormats()) as [format, pretty]}
-                    <option value={format}>{pretty[0]}</option>
-                {/each}
-            </select>
+        <div class="flex flex-col gap-2">
+            <div class="flex gap-2">
+                <button on:click={cleanMacro} class="bg-red-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-red-700 inline-flex gap-2 items-center">
+                    <Trash2 size="20" /> Clean
+                </button>
+                <button on:click={sortMacro} class="bg-neutral-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-neutral-700 inline-flex gap-2 items-center">
+                    Sort
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button on:click={saveReplay} class="bg-green-800 text-white rounded-md px-6 py-2 font-medium hover:bg-green-700">Save</button>
+                <select bind:value={selectedSaveFormat} class="bg-neutral-800 text-white rounded-md px-6 py-2 font-medium hover:bg-neutral-700">
+                    {#each Object.entries(allowedFormats()) as [format, pretty]}
+                        <option value={format}>{pretty[0]}</option>
+                    {/each}
+                </select>
+            </div>
         </div>
     </div>
 </div>

@@ -73,8 +73,8 @@ impl ClickType {
     pub fn toggle(&self) -> Self {
         match self {
             ClickType::Click => ClickType::Release,
-            ClickType::Release => ClickType::Click,
-            ClickType::Skip => ClickType::Skip,
+            ClickType::Release => ClickType::Skip,
+            ClickType::Skip => ClickType::Click,
         }
     }
 }

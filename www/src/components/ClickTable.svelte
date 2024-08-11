@@ -3,22 +3,27 @@
     import { Click, Converter } from '$lib';
 	import { onMount, tick } from 'svelte';
 	import ClickView from './ClickView.svelte';
+	import ClickRow from './ClickRow.svelte';
 
     export let converter: Converter
 
-    let currentIdx = 0;
-    let pageSize = 20;
+    export let currentIdx: number;
+    export let pageSize: number;
+
+    export let setCurrentIdx: (idx: number) => void;
+    export let setPageSize: (size: number) => void;
     let top = 0;
     let bottom = 0;
     let clickList: HTMLElement;
 
-    let clicks: Click[] = [];
+    export let clicks: Click[];
     let rowHeight: number;
 
-    function refreshClicks() {
-        clicks = converter.clicks_at_batch(currentIdx, pageSize);
-        console.log('Loaded clicks at', currentIdx, pageSize);
-    }
+    let currentlyMoving: HTMLElement;
+    let currentlyMovingIdx: number;
+    export let refreshInputCount: () => void;
+    export let refreshClicks: () => void;
+
 
     let viewport: HTMLElement;
 
@@ -38,7 +43,7 @@
 
         while (i < converter.length()) {
             if (y + rowHeight > scrollTop) {
-                currentIdx = i;
+                setCurrentIdx(i);
                 top = y;
                 break;
             }
@@ -56,13 +61,36 @@
             }
         }
 
-        pageSize = i - currentIdx;
+        setPageSize(i - currentIdx);
 
         bottom = (converter.length() - i) * rowHeight;
 
         refreshClicks();
 
-        console.log(top, bottom, currentIdx, pageSize, y);
+        //console.log(top, bottom, currentIdx, pageSize, y);
+    }
+
+    // function onDragStart(event: DragEvent) {
+    //     if (event.dataTransfer) {
+    //         event.dataTransfer!.effectAllowed = 'move';
+    //         event.dataTransfer!.setData('text/plain', null);
+
+    //         currentlyMoving = event.target as HTMLElement;
+            
+    //     }
+    // }
+
+    // function onDragOver(event: DragEvent) {
+    //     event.preventDefault();
+
+    //     if (event.dataTransfer) {
+    //         event
+    //     }
+    // }
+
+    let currentlyHoveringOverIdx: number;
+    function setCurrentlyHoveringOverIdx(idx: number) {
+        currentlyHoveringOverIdx = idx;
     }
 
     onMount(async () => {
@@ -87,20 +115,21 @@
     `
     }>
         {#each clicks as click, i}
-            <tr class={`click-row flex text-white text-center w-full min-h-[3.5rem] h-[3.5rem] flex items-center border-b border-neutral-700/30`} style={`
-            `}>
-                <td class="text-center w-[30%]">{click.frame}</td>
-                <td class="text-center w-[35%] flex justify-center"><ClickView click={click.p1} /></td>
-                <td class="text-center w-[35%] flex justify-center"><ClickView click={click.p2} /></td>
-            </tr>
+            <ClickRow {click} {i} {converter} {currentIdx} {refreshClicks} {refreshInputCount} {currentlyHoveringOverIdx} {setCurrentlyHoveringOverIdx} />
         {/each}
     </tbody>
 </table>
 
 
 <style>
-    .scrollbar::-webkit-scrollbar {
+    /* .scrollbar::-webkit-scrollbar {
+        display: none;
     }
+
+    .scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    } */
 
     ::-webkit-scrollbar-track {
         background-color: transparent;

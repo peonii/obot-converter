@@ -7,6 +7,7 @@
 
     let converter: Converter;
 
+    let filesToLoad: FileList;
     let fileToLoad: File;
     let selectedFormat: number;
     let isLoaded = false;
@@ -37,7 +38,18 @@
         event.preventDefault();
     }
 
+    function handleChange(event: Event) {
+        const target = event.target as HTMLInputElement;
+        fileToLoad = target.files[0];
+
+        // if (fileToLoad) {
+        //     handleLoad();
+        // }
+    }
+
     async function handleLoad() {
+        converter = new Converter();
+
         const contents = await fileToLoad.arrayBuffer();
         const arr = new Uint8Array(contents);
 
@@ -59,7 +71,8 @@
         <ReplayView converter={converter} replayData={replayData} {replayName} />
     {:else}
     <h1 class="text-white font-bold text-4xl">Load file</h1>
-    <div class="border-2 border-dashed border-neutral-600 rounded-md min-w-80 min-h-40 flex flex-col items-center justify-center" on:drop={handleDrop} on:dragover={handleDragOver} role="button" tabindex="0">
+    <input on:change={handleChange} type="file" id="replay-input" class="fixed opacity-0 top-0 left-0" bind:files={filesToLoad} />
+    <label for="replay-input" class="border-2 cursor-pointer hover:bg-neutral-950 border-dashed border-neutral-600 rounded-md min-w-80 min-h-40 flex flex-col items-center justify-center" on:drop={handleDrop} on:dragover={handleDragOver}>
         <h1 class="text-center text-white font-medium text-xl">
             {#if fileToLoad}
                 {fileToLoad.name}
@@ -74,7 +87,7 @@
                 Or choose a file
             {/if}
         </h2>
-    </div>
+    </label>
     {#if fileToLoad}
         <div class="flex gap-2">
             <button class="bg-neutral-800 text-white rounded-md px-6 py-2 font-medium hover:bg-neutral-700" on:click={handleLoad}>Load</button>
