@@ -96,6 +96,7 @@
     function cleanMacro() {
         converter.clean();
         refreshClicks();
+        refreshInputCount();
     }
 
     function sortMacro() {
