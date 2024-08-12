@@ -15,9 +15,10 @@ impl Replay {
 
         let mut frame = 0;
 
-        self.clicks.reserve(
-            replay.get(Meta::PRESSES)? as usize
-        );
+        // Apparently I can't trust yBot 2's PRESSES meta field
+        // self.clicks.reserve(
+        //     replay.get(Meta::PRESSES)? as usize
+        // );
 
         for action in replay.actions() {
             let action = action?;

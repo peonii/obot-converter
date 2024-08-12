@@ -2,7 +2,7 @@
 	import type { Converter } from "$lib";
 	import { Cog } from "lucide-svelte";
     import { fade, scale } from "svelte/transition";
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
 
     export let settings: Settings;
     export let converter: Converter;
@@ -45,7 +45,7 @@
         localStorage.setItem('autoOffset', target.checked.toString());
     }
 
-    onMount(() => {
+    onMount(async () => {
         if (localStorage.getItem('autoOffset') === null) {
             localStorage.setItem('autoOffset', 'true');
         }
@@ -71,6 +71,10 @@
         settings.fancyJson = localStorage.getItem('fancyJson') === 'true';
         settings.plainTextEditor = localStorage.getItem('plainTextEditor') === 'true';
         settings.crossVersionConverting = localStorage.getItem('crossVersionConverting') === 'true';
+
+        while (!converter) {
+            await tick();
+        }
 
         converter.set_setting_auto_offset(settings.autoOffset);
         converter.set_setting_beautify_json(settings.fancyJson);

@@ -140,6 +140,10 @@
         refreshClicks();
     }
 
+    function checkCPS() {
+        converter.check_cps();
+    }
+
     export let offset: number;
 
     function handleOffsetChange(event: Event) {
@@ -203,6 +207,9 @@
                 </button>
                 <button on:click={sortMacro} class="bg-blue-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-blue-700 inline-flex gap-2 items-center">
                     <ArrowDownWideNarrow size="20" /> Sort
+                </button>
+                <button on:click={checkCPS} class="bg-green-800 text-white rounded-md px-6 py-2 w-fit font-medium hover:bg-green-700 inline-flex gap-2 items-center">
+                    <ArrowDownWideNarrow size="20" /> Check CPS (Console)
                 </button>
             </div>
             <div class="flex gap-2">

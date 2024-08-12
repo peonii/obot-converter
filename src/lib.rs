@@ -71,6 +71,20 @@ extern "C" {
 }
 
 #[wasm_bindgen]
+#[derive(Clone, Copy)]
+pub enum CPSRule {
+    Rule15CPS,
+    Rule3CPF,
+    Rule45CP5C
+}
+
+#[wasm_bindgen]
+pub struct CPSViolation {
+    pub rule: CPSRule,
+    pub frame: u32
+}
+
+#[wasm_bindgen]
 impl Converter {
     pub fn load(&mut self, data: Vec<u8>, fmt: Format) -> Result<(), ConverterError> {
         let cursor = Cursor::new(data);
@@ -360,6 +374,85 @@ impl Converter {
         }
 
         cursor.into_inner()
+    }
+
+    fn check_cps_for_player(&self, p2: bool) -> Vec<CPSViolation> {
+        let mut clicked_frames: Vec<u32> = vec![];
+        let mut violations = vec![];
+
+        self.loaded_replay.clicks.iter().for_each(|click| {
+            if p2 && !click.p2.is_click() {
+                return;
+            }
+
+            if !p2 && !click.p1.is_click() {
+                return;
+            }
+
+            let old_clicked_frames = clicked_frames.clone();
+            clicked_frames = old_clicked_frames.into_iter().filter(|frame| {
+                return click.frame - frame < (self.loaded_replay.fps as u32);
+            }).collect();
+
+            clicked_frames.push(click.frame);
+
+            if clicked_frames.len() > 15 {
+                violations.push(CPSViolation { rule: CPSRule::Rule15CPS, frame: click.frame });
+            }
+
+            let just_this_frame: Vec<&u32> = clicked_frames.iter().filter(|f| **f == click.frame).collect();
+
+            if just_this_frame.len() > 3 {
+                violations.push(CPSViolation { rule: CPSRule::Rule3CPF, frame: click.frame });
+            }
+
+            let max_frame_diff = (self.loaded_replay.fps / 45.0).ceil() as u32;
+
+            let mut last_5_clicks = clicked_frames.clone();
+            if last_5_clicks.len() < 6 {
+                return;
+            }
+            let last_5_clicks: Vec<u32> = last_5_clicks.drain(0..(last_5_clicks.len()-5)).collect();
+
+            let mut last_click: u32 = 0;
+
+            let violates = last_5_clicks.iter().all(|c| {
+                let result = c - last_click < max_frame_diff;
+                last_click = *c;
+
+                return result;
+            });
+
+            if violates {
+                violations.push(CPSViolation { rule: CPSRule::Rule45CP5C, frame: click.frame });
+            }
+        });
+
+        violations
+    }
+
+    pub fn check_cps(&self) {
+        let mut violations = self.check_cps_for_player(false);
+        let mut violations_p2 = self.check_cps_for_player(true);
+        violations.append(&mut violations_p2);
+
+        if violations.len() == 0 {
+            console_log("No violations found. This macro complies with every ILL CPS rule.")
+        }
+
+        violations.iter().for_each(|violation| {
+            match violation.rule {
+                CPSRule::Rule15CPS => {
+                    console_log(&format!("FRAME {}: Exceeded 15 CPS", violation.frame))
+                }
+                CPSRule::Rule3CPF => {
+                    console_log(&format!("FRAME {}: Exceeded 3 clicks per frame", violation.frame))
+                }
+                CPSRule::Rule45CP5C => {
+                    console_log(&format!("FRAME {}: Exceeded 45 CPS in a burst of 5 inputs", violation.frame))
+                }
+            }
+        });
     }
 
     #[wasm_bindgen(constructor)]
