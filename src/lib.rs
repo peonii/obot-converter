@@ -262,7 +262,7 @@ impl Converter {
     }
 
     pub fn sort(&mut self) {
-        self.loaded_replay.clicks.sort_unstable_by(|c1, c2| {
+        self.loaded_replay.clicks.sort_by(|c1, c2| {
             c1.frame.cmp(&c2.frame)
         });
 
