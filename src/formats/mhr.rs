@@ -31,7 +31,11 @@ struct MHRClick {
 
 impl From<MHRClick> for Click {
     fn from(value: MHRClick) -> Self {
-        Click::from_hold(value.frame, value.down.unwrap_or(false), value.p2.unwrap_or(false))
+        Self::from_hold(
+            value.frame,
+            value.down.unwrap_or(false),
+            value.p2.unwrap_or(false),
+        )
     }
 }
 
@@ -40,16 +44,15 @@ struct MHRMeta {
     pub fps: f32,
 }
 
-
 impl Replay {
     pub fn parse_mhr_json(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let reader = BufReader::new(reader);
 
-        let replay: MHRReplay = serde_json::from_reader(reader)
-            .map_err(|_| ReplayError::ParseError)?;
+        let replay: MHRReplay =
+            serde_json::from_reader(reader).map_err(|_| ReplayError::ParseError)?;
 
         self.fps = replay.meta.fps;
-        self.clicks = replay.events.into_iter().map(|click| click.into()).collect();
+        self.clicks = replay.events.into_iter().map(MHRClick::into).collect();
         self.game_version = GameVersion::Version2113;
 
         Ok(())
@@ -68,7 +71,7 @@ impl Replay {
                     a: None,
                     x: None,
                     r: None,
-                    y: None
+                    y: None,
                 });
 
                 Ok::<(), ReplayError>(())
@@ -78,17 +81,14 @@ impl Replay {
         let replay = MHRReplay {
             tag: "converter by nat :3".to_owned(),
             events: clicks,
-            meta: MHRMeta {
-                fps: self.fps
-            }
+            meta: MHRMeta { fps: self.fps },
         };
 
         if self.settings.beautified_json {
             serde_json::to_writer_pretty(&mut writer, &replay)
                 .map_err(|_| ReplayError::WriteError)?;
         } else {
-            serde_json::to_writer(&mut writer, &replay)
-                .map_err(|_| ReplayError::WriteError)?;
+            serde_json::to_writer(&mut writer, &replay).map_err(|_| ReplayError::WriteError)?;
         }
 
         Ok(())

@@ -56,7 +56,10 @@ impl Replay {
                 let delta = frame - last_frame;
                 last_frame = frame;
 
-                replay.add(TimedAction::new(delta.into(), Action::Button(!p2, hold, PlayerButton::Jump)))?;
+                replay.add(TimedAction::new(
+                    delta.into(),
+                    Action::Button(!p2, hold, PlayerButton::Jump),
+                ))?;
 
                 Ok::<(), ReplayError>(())
             })
@@ -71,23 +74,23 @@ impl Replay {
         self.game_version = GameVersion::Version2113;
 
         let mut buf = [0u8; 4];
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         if buf != YBOT1_HEADER {
             return Err(ReplayError::ParseError);
         }
 
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         self.fps = f32::from_le_bytes(buf);
 
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         let clicks_len = i32::from_le_bytes(buf);
         self.clicks.reserve(clicks_len as usize);
 
         for _ in 0..clicks_len {
-            reader.read(&mut buf)?;
+            reader.read_exact(&mut buf)?;
             let frame = u32::from_le_bytes(buf);
 
-            reader.read(&mut buf)?;
+            reader.read_exact(&mut buf)?;
             let state = u32::from_le_bytes(buf);
 
             let hold = (state & 2) == 2;
@@ -102,15 +105,15 @@ impl Replay {
     pub fn write_ybot1(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        writer.write(&YBOT1_HEADER)?;
-        writer.write(&self.fps.to_le_bytes())?;
-        writer.write(&self.clicks.len().to_le_bytes())?;
+        writer.write_all(&YBOT1_HEADER)?;
+        writer.write_all(&self.fps.to_le_bytes())?;
+        writer.write_all(&self.clicks.len().to_le_bytes())?;
 
         self.clicks.iter().try_for_each(|click| {
             click.apply_hold(|frame, hold, p2| {
-                writer.write(&frame.to_le_bytes())?;
-                let state: u32 = if hold { 2 } else { 0 } | if p2 { 1 } else { 0 };
-                writer.write(&state.to_le_bytes())?;
+                writer.write_all(&frame.to_le_bytes())?;
+                let state: u32 = if hold { 2 } else { 0 } | (p2 as u32);
+                writer.write_all(&state.to_le_bytes())?;
 
                 Ok::<(), ReplayError>(())
             })

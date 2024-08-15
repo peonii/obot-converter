@@ -1,3 +1,17 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+// Missing const for fn is allowed because #[wasm_bindgen] requires non-const functions
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_const_for_fn,
+    clippy::cast_lossless,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::module_name_repetitions,
+    clippy::cargo_common_metadata
+)]
+
 pub mod formats;
 
 use std::io::Cursor;
@@ -7,7 +21,7 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Settings {
     pub auto_offset: bool,
     pub beautified_json: bool,
@@ -17,19 +31,20 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             auto_offset: true,
-            beautified_json: true
+            beautified_json: true,
         }
     }
 }
 
 #[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Converter {
     loaded_replay: Replay,
-    pub settings: Settings
+    pub settings: Settings,
 }
 
 #[wasm_bindgen]
+#[derive(Clone, Copy)]
 pub enum Format {
     OmegaBot,
     OmegaBot2,
@@ -75,13 +90,14 @@ extern "C" {
 pub enum CPSRule {
     Rule15CPS,
     Rule3CPF,
-    Rule45CP5C
+    Rule45CP5C,
 }
 
 #[wasm_bindgen]
 pub struct CPSViolation {
     pub rule: CPSRule,
-    pub frame: u32
+    pub frame: u32,
+    pub cps: f64,
 }
 
 #[wasm_bindgen]
@@ -113,11 +129,11 @@ impl Converter {
             Format::KDBot => self.loaded_replay.parse_kdbot(cursor),
             Format::XBot => self.loaded_replay.parse_xbot(cursor),
             Format::XDBot => self.loaded_replay.parse_xdbot(cursor),
-            Format::Fembot => self.loaded_replay.parse_fembot(cursor)
+            Format::Fembot => self.loaded_replay.parse_fembot(cursor),
         };
 
         match result {
-            Ok(_) => {},
+            Ok(()) => {}
             Err(e) => {
                 console_error(&e.to_string());
             }
@@ -126,6 +142,7 @@ impl Converter {
         Ok(())
     }
 
+    #[must_use]
     pub fn get_fps(&self) -> f32 {
         self.loaded_replay.fps
     }
@@ -142,6 +159,7 @@ impl Converter {
         self.settings.auto_offset = value;
     }
 
+    #[must_use]
     pub fn length(&self) -> usize {
         self.loaded_replay.clicks.len()
     }
@@ -150,37 +168,48 @@ impl Converter {
     //     self.loaded_replay.clicks.clone()
     // }
 
+    #[must_use]
     pub fn game_version(&self) -> GameVersion {
         self.loaded_replay.game_version
     }
 
+    #[must_use]
     pub fn clicks(&self) -> Vec<Click> {
         self.loaded_replay.clicks.clone()
     }
 
+    #[must_use]
     pub fn click_at(&self, idx: usize) -> Click {
         self.loaded_replay.clicks[idx]
     }
 
-    pub fn offset_all_by(&mut self, offset: i32) {
+    pub fn offset_all_by(&mut self, offset: i64) {
         let clicks_old = self.loaded_replay.clicks.clone();
 
-        self.loaded_replay.clicks = clicks_old.into_iter().map(|click| {
-            let new_frame = if offset < -(click.frame as i32) { 0 } else { ((click.frame as i32) + offset) as u32 };
+        self.loaded_replay.clicks = clicks_old
+            .into_iter()
+            .map(|click| {
+                let new_frame = if offset < -(click.frame as i64) {
+                    0
+                } else {
+                    ((click.frame as i64) + offset) as u32
+                };
 
-            Click {
-                frame: new_frame,
-                ..click
-            }
-        }).collect();
+                Click {
+                    frame: new_frame,
+                    ..click
+                }
+            })
+            .collect();
     }
 
+    #[must_use]
     pub fn clicks_at_batch(&self, idx: usize, page: usize) -> Vec<Click> {
-        if self.loaded_replay.clicks.len() == 0 {
+        if self.loaded_replay.clicks.is_empty() {
             return vec![];
         }
 
-        self.loaded_replay.clicks[idx..idx+page].to_vec()
+        self.loaded_replay.clicks[idx..idx + page].to_vec()
     }
 
     pub fn replace_frame_at(&mut self, idx: usize, frame: u32) {
@@ -188,11 +217,14 @@ impl Converter {
     }
 
     pub fn insert_empty_at(&mut self, idx: usize, frame: u32) {
-        self.loaded_replay.clicks.insert(idx, Click {
-            frame,
-            p1: ClickType::Skip,
-            p2: ClickType::Skip
-        })
+        self.loaded_replay.clicks.insert(
+            idx,
+            Click {
+                frame,
+                p1: ClickType::Skip,
+                p2: ClickType::Skip,
+            },
+        );
     }
 
     pub fn remove_at(&mut self, idx: usize) {
@@ -212,59 +244,77 @@ impl Converter {
         let mut current_click_state_p2 = false;
 
         let clicks_old = self.loaded_replay.clicks.clone();
-        self.loaded_replay.clicks = clicks_old.into_iter().map(|click| {
-            let mut new_click = click;
-            
-            if click.p1.is_click() {
-                let valid = if !current_click_state_p1 { true } else { false };
-                current_click_state_p1 = if valid { true } else { current_click_state_p1 };
-                if !valid {
-                    console_log(&format!("CLEANED {} - turned reduntant p1 click into skip", click.frame));
-                    new_click.p1 = ClickType::Skip;   
-                }
-            } else if click.p1.is_release() {
-                let valid = if current_click_state_p1 { true } else { false };
-                current_click_state_p1 = if valid { false } else { current_click_state_p1 };
-                if !valid {
-                    console_log(&format!("CLEANED {} - turned reduntant p1 release into skip", click.frame));
-                    new_click.p1 = ClickType::Skip;   
-                }
-            }
+        self.loaded_replay.clicks = clicks_old
+            .into_iter()
+            .map(|click| {
+                let mut new_click = click;
 
-            if click.p2.is_click() {
-                let valid = if !current_click_state_p2 { true } else { false };
-                current_click_state_p2 = if valid { true } else { current_click_state_p2 };
-                if !valid {
-                    console_log(&format!("CLEANED {} - turned reduntant p2 click into skip", click.frame));
-                    new_click.p2 = ClickType::Skip;   
+                if click.p1.is_click() {
+                    let valid = !current_click_state_p1;
+                    current_click_state_p1 = true;
+                    if !valid {
+                        console_log(&format!(
+                            "CLEANED {} - turned reduntant p1 click into skip",
+                            click.frame
+                        ));
+                        new_click.p1 = ClickType::Skip;
+                    }
+                } else if click.p1.is_release() {
+                    let valid = current_click_state_p1;
+                    current_click_state_p1 = false;
+                    if !valid {
+                        console_log(&format!(
+                            "CLEANED {} - turned reduntant p1 release into skip",
+                            click.frame
+                        ));
+                        new_click.p1 = ClickType::Skip;
+                    }
                 }
-            } else if click.p2.is_release() {
-                let valid = if current_click_state_p2 { true } else { false };
-                current_click_state_p2 = if valid { false } else { current_click_state_p2 };
-                if !valid {
-                    console_log(&format!("CLEANED {} - turned reduntant p2 release into skip", click.frame));
-                    new_click.p2 = ClickType::Skip;   
+
+                if click.p2.is_click() {
+                    let valid = !current_click_state_p2;
+                    current_click_state_p2 = if valid { true } else { current_click_state_p2 };
+                    if !valid {
+                        console_log(&format!(
+                            "CLEANED {} - turned reduntant p2 click into skip",
+                            click.frame
+                        ));
+                        new_click.p2 = ClickType::Skip;
+                    }
+                } else if click.p2.is_release() {
+                    let valid = current_click_state_p2;
+                    current_click_state_p2 = false;
+                    if !valid {
+                        console_log(&format!(
+                            "CLEANED {} - turned reduntant p2 release into skip",
+                            click.frame
+                        ));
+                        new_click.p2 = ClickType::Skip;
+                    }
                 }
-            }
 
-            return new_click;
-        })
-        .filter(|click| {
-            if click.p1.is_skip() && click.p2.is_skip() {
-                console_log(&format!("CLEANED {} - removed input as both p1 and p2 were skips", click.frame));
-                return false;
-            }
+                new_click
+            })
+            .filter(|click| {
+                if click.p1.is_skip() && click.p2.is_skip() {
+                    console_log(&format!(
+                        "CLEANED {} - removed input as both p1 and p2 were skips",
+                        click.frame
+                    ));
+                    return false;
+                }
 
-            return true;
-        }).collect();
+                true
+            })
+            .collect();
 
         console_log("Successfully cleaned replay");
     }
 
     pub fn sort(&mut self) {
-        self.loaded_replay.clicks.sort_by(|c1, c2| {
-            c1.frame.cmp(&c2.frame)
-        });
+        self.loaded_replay
+            .clicks
+            .sort_by(|c1, c2| c1.frame.cmp(&c2.frame));
 
         console_log("Successfully sorted inputs");
     }
@@ -272,25 +322,29 @@ impl Converter {
     pub fn remove_all_player_inputs(&mut self, player_2: bool) {
         let clicks_old = self.loaded_replay.clicks.clone();
 
-        self.loaded_replay.clicks = clicks_old.into_iter()
+        self.loaded_replay.clicks = clicks_old
+            .into_iter()
             .map(|click| {
                 let mut new_click = click;
-                
+
                 if player_2 {
                     new_click.p2 = ClickType::Skip;
                 } else {
                     new_click.p1 = ClickType::Skip;
                 }
 
-                return new_click;
+                new_click
             })
             .filter(|click| {
                 if click.p1.is_skip() && click.p2.is_skip() {
-                    console_log(&format!("CLEANED {} - removed input as both p1 and p2 were skips", click.frame));
+                    console_log(&format!(
+                        "CLEANED {} - removed input as both p1 and p2 were skips",
+                        click.frame
+                    ));
                     return false;
                 }
 
-                return true;
+                true
             })
             .collect();
     }
@@ -298,14 +352,15 @@ impl Converter {
     pub fn flip_p1_p2(&mut self) {
         let clicks_old = self.loaded_replay.clicks.clone();
 
-        self.loaded_replay.clicks = clicks_old.into_iter()
+        self.loaded_replay.clicks = clicks_old
+            .into_iter()
             .map(|click| {
                 let mut new_click = click;
-                
+
                 new_click.p2 = click.p1;
                 new_click.p1 = click.p2;
 
-                return new_click;
+                new_click
             })
             .collect();
     }
@@ -313,22 +368,23 @@ impl Converter {
     pub fn flip_up_down(&mut self) {
         let clicks_old = self.loaded_replay.clicks.clone();
 
-        self.loaded_replay.clicks = clicks_old.into_iter()
+        self.loaded_replay.clicks = clicks_old
+            .into_iter()
             .map(|click| {
                 let mut new_click = click;
-                
+
                 new_click.p1 = match click.p1 {
                     ClickType::Skip => ClickType::Skip,
                     ClickType::Click => ClickType::Release,
-                    ClickType::Release => ClickType::Click
+                    ClickType::Release => ClickType::Click,
                 };
                 new_click.p2 = match click.p2 {
                     ClickType::Skip => ClickType::Skip,
                     ClickType::Click => ClickType::Release,
-                    ClickType::Release => ClickType::Click
+                    ClickType::Release => ClickType::Click,
                 };
 
-                return new_click;
+                new_click
             })
             .collect();
     }
@@ -363,11 +419,11 @@ impl Converter {
             Format::KDBot => self.loaded_replay.write_kdbot(&mut cursor),
             Format::XBot => self.loaded_replay.write_xbot(&mut cursor),
             Format::XDBot => self.loaded_replay.write_xdbot(&mut cursor),
-            Format::Fembot => self.loaded_replay.write_fembot(&mut cursor)
+            Format::Fembot => self.loaded_replay.write_fembot(&mut cursor),
         };
 
         match result {
-            Ok(_) => {},
+            Ok(()) => {}
             Err(e) => {
                 console_error(&e.to_string());
             }
@@ -390,20 +446,29 @@ impl Converter {
             }
 
             let old_clicked_frames = clicked_frames.clone();
-            clicked_frames = old_clicked_frames.into_iter().filter(|frame| {
-                return click.frame - frame < (self.loaded_replay.fps as u32);
-            }).collect();
+            clicked_frames = old_clicked_frames
+                .into_iter()
+                .filter(|frame| click.frame - frame < (self.loaded_replay.fps as u32))
+                .collect();
 
             clicked_frames.push(click.frame);
 
             if clicked_frames.len() > 15 {
-                violations.push(CPSViolation { rule: CPSRule::Rule15CPS, frame: click.frame });
+                violations.push(CPSViolation {
+                    rule: CPSRule::Rule15CPS,
+                    frame: click.frame,
+                    cps: clicked_frames.len() as f64,
+                });
             }
 
-            let just_this_frame: Vec<&u32> = clicked_frames.iter().filter(|f| **f == click.frame).collect();
+            let just_this_frame = clicked_frames.iter().filter(|f| **f == click.frame);
 
-            if just_this_frame.len() > 3 {
-                violations.push(CPSViolation { rule: CPSRule::Rule3CPF, frame: click.frame });
+            if just_this_frame.count() > 3 {
+                violations.push(CPSViolation {
+                    rule: CPSRule::Rule3CPF,
+                    frame: click.frame,
+                    cps: clicked_frames.len() as f64,
+                });
             }
 
             let max_frame_diff = (self.loaded_replay.fps / 45.0).ceil() as u32;
@@ -412,7 +477,8 @@ impl Converter {
             if last_5_clicks.len() < 6 {
                 return;
             }
-            let last_5_clicks: Vec<u32> = last_5_clicks.drain(0..(last_5_clicks.len()-5)).collect();
+            let last_5_clicks: Vec<u32> =
+                last_5_clicks.drain(0..(last_5_clicks.len() - 5)).collect();
 
             let mut last_click: u32 = 0;
 
@@ -420,11 +486,15 @@ impl Converter {
                 let result = c - last_click < max_frame_diff;
                 last_click = *c;
 
-                return result;
+                result
             });
 
             if violates {
-                violations.push(CPSViolation { rule: CPSRule::Rule45CP5C, frame: click.frame });
+                violations.push(CPSViolation {
+                    rule: CPSRule::Rule45CP5C,
+                    frame: click.frame,
+                    cps: clicked_frames.len() as f64,
+                });
             }
         });
 
@@ -436,31 +506,32 @@ impl Converter {
         let mut violations_p2 = self.check_cps_for_player(true);
         violations.append(&mut violations_p2);
 
-        if violations.len() == 0 {
-            console_log("No violations found. This macro complies with every ILL CPS rule.")
+        if violations.is_empty() {
+            console_log("No violations found. This macro complies with every ILL CPS rule.");
         }
 
-        violations.iter().for_each(|violation| {
-            match violation.rule {
-                CPSRule::Rule15CPS => {
-                    console_log(&format!("FRAME {}: Exceeded 15 CPS", violation.frame))
-                }
-                CPSRule::Rule3CPF => {
-                    console_log(&format!("FRAME {}: Exceeded 3 clicks per frame", violation.frame))
-                }
-                CPSRule::Rule45CP5C => {
-                    console_log(&format!("FRAME {}: Exceeded 45 CPS in a burst of 5 inputs", violation.frame))
-                }
-            }
-        });
+        violations
+            .iter()
+            .for_each(|violation| match violation.rule {
+                CPSRule::Rule15CPS => console_log(&format!(
+                    "FRAME {}: {} CPS! Exceeded 15 CPS",
+                    violation.frame, violation.cps
+                )),
+                CPSRule::Rule3CPF => console_log(&format!(
+                    "FRAME {}: {} CPS! Exceeded 3 clicks per frame",
+                    violation.frame, violation.cps
+                )),
+                CPSRule::Rule45CP5C => console_log(&format!(
+                    "FRAME {}: {} CPS! Exceeded 45 CPS in a burst of 5 inputs",
+                    violation.frame, violation.cps
+                )),
+            });
     }
 
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Converter {
-        Converter {
-            loaded_replay: Replay::default(),
-            settings: Settings::default()
-        }
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

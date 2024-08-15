@@ -2,7 +2,6 @@ use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
 use super::replay::{Click, GameVersion, Replay, ReplayError};
 
-
 impl Replay {
     pub fn parse_zbot(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         self.clear();
@@ -11,9 +10,9 @@ impl Replay {
 
         let mut buf = [0u8; 4];
 
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         let delta = f32::from_le_bytes(buf);
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         let speedhack = f32::from_le_bytes(buf);
 
         self.fps = (1.0 / (delta * speedhack)).round();
@@ -24,9 +23,9 @@ impl Replay {
             reader.seek(std::io::SeekFrom::Start(old_pos))?;
         }
 
-        // 8 is how much space the delta and speedhack take up, 
+        // 8 is how much space the delta and speedhack take up,
         // 6 is how much space one click takes up (in bytes)
-        let clicks_len = (len - 8) / 6; 
+        let clicks_len = (len - 8) / 6;
         self.clicks.reserve(clicks_len as usize);
         self.game_version = GameVersion::Version2113;
 
@@ -42,30 +41,25 @@ impl Replay {
 
             reader.read_exact(&mut small_buf)?;
             let player_2 = small_buf[0] == 0x31;
-            
-            self.clicks.push(
-                Click::from_hold(frame as u32, hold, player_2)
-            );
+
+            self.clicks
+                .push(Click::from_hold(frame as u32, hold, player_2));
         }
 
         Ok(())
-    }   
+    }
 
     pub fn write_zbot(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        writer.write(&((1.0 / self.fps).to_le_bytes()))?; // Delta
-        writer.write(&(1.0_f32.to_le_bytes()))?; // Speedhack
+        writer.write_all(&((1.0 / self.fps).to_le_bytes()))?; // Delta
+        writer.write_all(&(1.0_f32.to_le_bytes()))?; // Speedhack
 
         self.clicks.iter().try_for_each(|click| {
             click.apply_hold(|frame, hold, p2| {
-                writer.write(&(frame as i32).to_le_bytes())?;
-                writer.write(
-                    &(if hold { 0x31_u8 } else { 0x30_u8 }).to_le_bytes()
-                )?;
-                writer.write(
-                    &(if !p2 { 0x31_u8 } else { 0x30_u8 }).to_le_bytes()
-                )?;
+                writer.write_all(&(frame as i32).to_le_bytes())?;
+                writer.write_all(&(if hold { 0x31_u8 } else { 0x30_u8 }).to_le_bytes())?;
+                writer.write_all(&(if p2 { 0x30_u8 } else { 0x31_u8 }).to_le_bytes())?;
 
                 Ok::<(), ReplayError>(())
             })
