@@ -12,7 +12,7 @@ pub enum ReplayError {
 
     #[error("Failed to read to buffer")]
     BufferError(#[from] std::io::Error),
-    
+
     #[error("Failed to write replay")]
     WriteError,
 }
@@ -22,15 +22,15 @@ pub enum ReplayError {
 pub enum GameVersion {
     Any,
     Version2113,
-    Version2206
+    Version2206,
 }
 
 impl Display for GameVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GameVersion::Any => write!(f, "Any"),
-            GameVersion::Version2113 => write!(f, "2.113"),
-            GameVersion::Version2206 => write!(f, "2.206"),
+            Self::Any => write!(f, "Any"),
+            Self::Version2113 => write!(f, "2.113"),
+            Self::Version2206 => write!(f, "2.206"),
         }
     }
 }
@@ -40,7 +40,7 @@ pub struct Replay {
     pub fps: f32,
     pub clicks: Vec<Click>,
     pub game_version: GameVersion,
-    pub settings: Settings
+    pub settings: Settings,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -48,36 +48,41 @@ pub struct Replay {
 pub enum ClickType {
     Click,
     Release,
-    Skip
+    Skip,
 }
 
 impl From<bool> for ClickType {
     fn from(value: bool) -> Self {
-        match value {
-            true => Self::Click,
-            false => Self::Release
+        if value {
+            Self::Click
+        } else {
+            Self::Release
         }
     }
 }
 
 impl ClickType {
+    #[must_use]
     pub fn is_skip(&self) -> bool {
-        matches!(self, ClickType::Skip)
+        matches!(self, Self::Skip)
     }
 
+    #[must_use]
     pub fn is_click(&self) -> bool {
-        matches!(self, ClickType::Click)
+        matches!(self, Self::Click)
     }
 
+    #[must_use]
     pub fn is_release(&self) -> bool {
-        matches!(self, ClickType::Release)
+        matches!(self, Self::Release)
     }
 
+    #[must_use]
     pub fn toggle(&self) -> Self {
         match self {
-            ClickType::Click => ClickType::Release,
-            ClickType::Release => ClickType::Skip,
-            ClickType::Skip => ClickType::Click,
+            Self::Click => Self::Release,
+            Self::Release => Self::Skip,
+            Self::Skip => Self::Click,
         }
     }
 }
@@ -91,17 +96,26 @@ pub struct Click {
 }
 
 impl Click {
+    #[must_use]
     pub fn from_hold(frame: u32, hold: bool, player_2: bool) -> Self {
         Self {
             frame,
-            p1: if !player_2 { hold.into() } else { ClickType::Skip },
-            p2: if player_2 { hold.into() } else { ClickType::Skip },
+            p1: if player_2 {
+                ClickType::Skip
+            } else {
+                hold.into()
+            },
+            p2: if player_2 {
+                hold.into()
+            } else {
+                ClickType::Skip
+            },
         }
     }
 
     pub fn apply_hold<F, E>(&self, mut f: F) -> Result<(), E>
     where
-        F: FnMut(u32, bool, bool) -> Result<(), E>
+        F: FnMut(u32, bool, bool) -> Result<(), E>,
     {
         if !self.p1.is_skip() {
             f(self.frame, self.p1.is_click(), false)?;
@@ -122,12 +136,13 @@ impl Default for Replay {
 }
 
 impl Replay {
+    #[must_use]
     pub fn new(fps: f32, game_version: GameVersion, settings: Settings) -> Self {
         Self {
             fps,
             clicks: vec![],
             game_version,
-            settings
+            settings,
         }
     }
 

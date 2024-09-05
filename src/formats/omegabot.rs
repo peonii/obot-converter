@@ -20,23 +20,21 @@ enum OmegabotClickType {
 }
 
 impl OmegabotClickType {
-    pub fn is_player1(&self) -> bool {
-        matches!(self, OmegabotClickType::Player1Down | OmegabotClickType::Player1Up)
+    pub fn is_player1(self) -> bool {
+        matches!(self, Self::Player1Down | Self::Player1Up)
     }
 
-    pub fn is_player2(&self) -> bool {
-        matches!(self, OmegabotClickType::Player2Down | OmegabotClickType::Player2Up)
+    pub fn is_player2(self) -> bool {
+        matches!(self, Self::Player2Down | Self::Player2Up)
     }
 }
 
 impl From<OmegabotClickType> for ClickType {
-    fn from(value: OmegabotClickType) -> ClickType {
+    fn from(value: OmegabotClickType) -> Self {
         match value {
-            OmegabotClickType::Player1Down => ClickType::Click,
-            OmegabotClickType::Player1Up => ClickType::Release,
-            OmegabotClickType::Player2Down => ClickType::Click,
-            OmegabotClickType::Player2Up => ClickType::Release,
-            _ => ClickType::Skip
+            OmegabotClickType::Player1Down | OmegabotClickType::Player2Down => Self::Click,
+            OmegabotClickType::Player1Up | OmegabotClickType::Player2Up => Self::Release,
+            _ => Self::Skip,
         }
     }
 }
@@ -48,11 +46,19 @@ struct OmegabotClick {
 }
 
 impl From<OmegabotClick> for Click {
-    fn from(value: OmegabotClick) -> Click {
-        Click {
+    fn from(value: OmegabotClick) -> Self {
+        Self {
             frame: value.frame,
-            p1: if value.click_type.is_player1() { value.click_type.into() } else { ClickType::Skip },
-            p2: if value.click_type.is_player2() { value.click_type.into() } else { ClickType::Skip },
+            p1: if value.click_type.is_player1() {
+                value.click_type.into()
+            } else {
+                ClickType::Skip
+            },
+            p2: if value.click_type.is_player2() {
+                value.click_type.into()
+            } else {
+                ClickType::Skip
+            },
         }
     }
 }
@@ -65,17 +71,16 @@ struct OmegabotReplay {
     current: usize,
 }
 
-
 impl Replay {
     pub fn parse_obot3(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let mut reader = BufReader::new(reader);
 
         let mut deserializer = dlhn::Deserializer::new(&mut reader);
-        let replay = OmegabotReplay::deserialize(&mut deserializer)
-            .map_err(|_| ReplayError::ParseError)?;
+        let replay =
+            OmegabotReplay::deserialize(&mut deserializer).map_err(|_| ReplayError::ParseError)?;
 
         self.fps = replay.initial_fps;
-        self.clicks = replay.clicks.into_iter().map(|click| click.into()).collect();
+        self.clicks = replay.clicks.into_iter().map(OmegabotClick::into).collect();
         self.game_version = GameVersion::Version2113;
 
         Ok(())
@@ -87,24 +92,21 @@ impl Replay {
         let mut serializer = dlhn::Serializer::new(writer);
 
         let mut clicks: Vec<OmegabotClick> = vec![];
-        for click in self.clicks.iter() {
+        for click in &self.clicks {
             click.apply_hold(|frame, hold, p2| {
                 let click_type;
 
                 if hold && p2 {
-                    click_type = OmegabotClickType::Player2Down
+                    click_type = OmegabotClickType::Player2Down;
                 } else if hold && !p2 {
-                    click_type = OmegabotClickType::Player1Down
+                    click_type = OmegabotClickType::Player1Down;
                 } else if !hold && p2 {
-                    click_type = OmegabotClickType::Player2Up
+                    click_type = OmegabotClickType::Player2Up;
                 } else {
-                    click_type = OmegabotClickType::Player1Up
+                    click_type = OmegabotClickType::Player1Up;
                 }
 
-                clicks.push(OmegabotClick {
-                    frame,
-                    click_type
-                });
+                clicks.push(OmegabotClick { frame, click_type });
 
                 Ok::<(), ReplayError>(())
             })?;
@@ -114,10 +116,11 @@ impl Replay {
             initial_fps: self.fps,
             current_fps: self.fps,
             current: 0,
-            clicks
+            clicks,
         };
 
-        replay.serialize(&mut serializer)
+        replay
+            .serialize(&mut serializer)
             .map_err(|_| ReplayError::WriteError)?;
 
         Ok(())

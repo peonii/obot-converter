@@ -17,7 +17,7 @@ struct LevelInfo {
     #[serde(default)]
     pub id: u32,
     #[serde(default)]
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -34,7 +34,7 @@ struct GDRInput {
 
 impl From<GDRInput> for Click {
     fn from(value: GDRInput) -> Self {
-        Click::from_hold(value.frame, value.down, value.p2)
+        Self::from_hold(value.frame, value.down, value.p2)
     }
 }
 
@@ -73,17 +73,17 @@ struct GDRReplay {
     pub fps: f32,
 }
 
-
 impl TryFrom<&Replay> for GDRReplay {
     type Error = ReplayError;
 
     fn try_from(orig: &Replay) -> Result<Self, Self::Error> {
-        let mut replay = GDRReplay::default();
-    
-        replay.fps = orig.fps;
-        replay.game_version = 2.204;
-        replay.version = 1.0;
-        
+        let mut replay = Self {
+            fps: orig.fps,
+            game_version: 2.204,
+            version: 1.0,
+            ..Default::default()
+        };
+
         orig.clicks.iter().try_for_each(|click| {
             click.apply_hold(|frame, down, p2| {
                 replay.clicks.push(GDRInput {
@@ -92,33 +92,33 @@ impl TryFrom<&Replay> for GDRReplay {
                     p2,
                     button: 1,
                 });
-    
+
                 Ok::<(), ReplayError>(())
             })
         })?;
-    
+
         Ok(replay)
     }
 }
 
 impl Replay {
     pub fn parse_gdr(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
-        let replay: GDRReplay = rmp_serde::from_read(reader)
-            .map_err(|_| ReplayError::ParseError)?;
+        let replay: GDRReplay =
+            rmp_serde::from_read(reader).map_err(|_| ReplayError::ParseError)?;
 
         self.fps = replay.fps.round();
-        self.clicks = replay.clicks.into_iter().map(|click| click.into()).collect();
+        self.clicks = replay.clicks.into_iter().map(GDRInput::into).collect();
         self.game_version = GameVersion::Version2206;
 
         Ok(())
     }
 
     pub fn parse_gdr_json(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
-        let replay: GDRReplay = serde_json::from_reader(reader)
-            .map_err(|_| ReplayError::ParseError)?;
+        let replay: GDRReplay =
+            serde_json::from_reader(reader).map_err(|_| ReplayError::ParseError)?;
 
         self.fps = replay.fps.round();
-        self.clicks = replay.clicks.into_iter().map(|click| click.into()).collect();
+        self.clicks = replay.clicks.into_iter().map(GDRInput::into).collect();
         self.game_version = GameVersion::Version2206;
 
         Ok(())
@@ -127,11 +127,15 @@ impl Replay {
     pub fn write_gdr(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let replay = GDRReplay::try_from(self)?;
 
+<<<<<<< HEAD
         let mut serializer = rmp_serde::Serializer::new(writer)
             .with_struct_map();
 
         replay.serialize(&mut serializer)
             .map_err(|_| ReplayError::WriteError)?;
+=======
+        rmp_serde::encode::write(writer, &replay).map_err(|_| ReplayError::WriteError)?;
+>>>>>>> a04af46bd21aeb55c7a249e90c97fcc4c1dfc37d
 
         Ok(())
     }
@@ -140,14 +144,11 @@ impl Replay {
         let replay = GDRReplay::try_from(self)?;
 
         if self.settings.beautified_json {
-            serde_json::to_writer_pretty(writer, &replay)
-                .map_err(|_| ReplayError::WriteError)?;
+            serde_json::to_writer_pretty(writer, &replay).map_err(|_| ReplayError::WriteError)?;
         } else {
-            serde_json::to_writer(writer, &replay)
-                .map_err(|_| ReplayError::WriteError)?;
+            serde_json::to_writer(writer, &replay).map_err(|_| ReplayError::WriteError)?;
         }
 
         Ok(())
     }
 }
-

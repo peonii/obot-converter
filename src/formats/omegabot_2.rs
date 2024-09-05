@@ -13,7 +13,7 @@ enum OmegaBot2Location {
 impl PartialEq for OmegaBot2Location {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (OmegaBot2Location::Frame(x), OmegaBot2Location::Frame(y)) => x == y,
+            (Self::Frame(x), Self::Frame(y)) => x == y,
             _ => false,
         }
     }
@@ -21,21 +21,21 @@ impl PartialEq for OmegaBot2Location {
 
 impl Eq for OmegaBot2Location {}
 
-impl PartialOrd for OmegaBot2Location {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (OmegaBot2Location::Frame(x), OmegaBot2Location::Frame(y)) => x.partial_cmp(y),
-            _ => None,
-        }
-    }
-}
+// impl PartialOrd for OmegaBot2Location {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         match (self, other) {
+//             (OmegaBot2Location::Frame(x), OmegaBot2Location::Frame(y)) => x.partial_cmp(y),
+//             _ => None,
+//         }
+//     }
+// }
 
-impl Ord for OmegaBot2Location {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other)
-            .expect("Cannot compare locations of different types")
-    }
-}
+// impl Ord for OmegaBot2Location {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.partial_cmp(other)
+//             .expect("Cannot compare locations of different types")
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 enum OmegaBot2ClickType {
@@ -48,11 +48,11 @@ enum OmegaBot2ClickType {
 }
 
 impl OmegaBot2ClickType {
-    pub fn is_player_2(&self) -> bool {
+    pub fn is_player_2(self) -> bool {
         matches!(self, Self::Player2Up | Self::Player2Down)
     }
 
-    pub fn is_down(&self) -> bool {
+    pub fn is_down(self) -> bool {
         matches!(self, Self::Player1Down | Self::Player2Down)
     }
 }
@@ -84,13 +84,13 @@ impl TryFrom<&OmegaBot2Click> for Click {
     fn try_from(value: &OmegaBot2Click) -> Result<Self, Self::Error> {
         let frame = match value.location {
             OmegaBot2Location::Frame(f) => Ok(f),
-            OmegaBot2Location::XPos(_) => Err(ReplayError::ParseError)
+            OmegaBot2Location::XPos(_) => Err(ReplayError::ParseError),
         }?;
 
         let hold = value.click_type.is_down();
         let p2 = value.click_type.is_player_2();
 
-        Ok(Click::from_hold(frame, hold, p2))
+        Ok(Self::from_hold(frame, hold, p2))
     }
 }
 
@@ -98,10 +98,10 @@ impl Replay {
     pub fn parse_obot2(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let reader = BufReader::new(reader);
 
-        let offset = if self.settings.auto_offset { 1 } else { 0 };
+        let offset = self.settings.auto_offset as u32;
 
-        let replay: OmegaBot2Replay = bincode::deserialize_from(reader)
-            .map_err(|_| ReplayError::ParseError)?;
+        let replay: OmegaBot2Replay =
+            bincode::deserialize_from(reader).map_err(|_| ReplayError::ParseError)?;
 
         self.fps = replay.initial_fps;
 
@@ -122,7 +122,7 @@ impl Replay {
     pub fn write_obot2(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        let offset = if self.settings.auto_offset { 1 } else { 0 };
+        let offset = self.settings.auto_offset as u32;
 
         let mut clicks = Vec::new();
         self.clicks.iter().try_for_each(|click| {
@@ -130,18 +130,18 @@ impl Replay {
                 let click_type;
 
                 if hold && p2 {
-                    click_type = OmegaBot2ClickType::Player2Down
+                    click_type = OmegaBot2ClickType::Player2Down;
                 } else if hold && !p2 {
-                    click_type = OmegaBot2ClickType::Player1Down
+                    click_type = OmegaBot2ClickType::Player1Down;
                 } else if !hold && p2 {
-                    click_type = OmegaBot2ClickType::Player2Up
+                    click_type = OmegaBot2ClickType::Player2Up;
                 } else {
-                    click_type = OmegaBot2ClickType::Player1Up
+                    click_type = OmegaBot2ClickType::Player1Up;
                 }
 
                 clicks.push(OmegaBot2Click {
                     location: OmegaBot2Location::Frame(frame - offset),
-                    click_type
+                    click_type,
                 });
 
                 Ok::<(), ReplayError>(())
@@ -153,11 +153,10 @@ impl Replay {
             initial_fps: self.fps,
             current_fps: self.fps,
             current_click: 0,
-            replay_type: OmegaBot2ReplayType::Frame
+            replay_type: OmegaBot2ReplayType::Frame,
         };
 
-        bincode::serialize_into(&mut writer, &replay)
-            .map_err(|_| ReplayError::WriteError)?;
+        bincode::serialize_into(&mut writer, &replay).map_err(|_| ReplayError::WriteError)?;
 
         Ok(())
     }

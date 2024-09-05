@@ -6,45 +6,50 @@ use super::replay::{Click, GameVersion, Replay, ReplayError};
 enum URLReplayType {
     XPos,
     Frames,
-    Both
+    Both,
 }
 
-impl From<u8> for URLReplayType {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for URLReplayType {
+    type Error = ReplayError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Self::XPos,
-            1 => Self::Frames,
-            2 => Self::Both,
-            _ => panic!("Invalid URLReplayType")
+            0 => Ok(Self::XPos),
+            1 => Ok(Self::Frames),
+            2 => Ok(Self::Both),
+            _ => Err(ReplayError::ParseError),
         }
     }
 }
 
 impl From<URLReplayType> for u8 {
-    fn from(value: URLReplayType) -> u8 {
+    fn from(value: URLReplayType) -> Self {
         match value {
             URLReplayType::XPos => 0,
             URLReplayType::Frames => 1,
-            URLReplayType::Both => 2
+            URLReplayType::Both => 2,
         }
     }
 }
-
 
 impl Replay {
     pub fn parse_url(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
         let mut reader = BufReader::new(reader);
 
         let mut buf = [0u8; 4];
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         self.fps = f32::from_le_bytes(buf);
         self.game_version = GameVersion::Version2113;
 
         let mut small_buf = [0u8; 1];
-        reader.read(&mut small_buf)?;
-        let replay_type: URLReplayType = small_buf[0].into();
+        reader.read_exact(&mut small_buf)?;
+        let replay_type: URLReplayType = small_buf[0].try_into()?;
 
-        let click_size: u64 = if replay_type == URLReplayType::Both { 9 } else { 5 };
+        let click_size: u64 = if replay_type == URLReplayType::Both {
+            9
+        } else {
+            5
+        };
 
         let old_pos = reader.stream_position()?;
         let len = reader.seek(std::io::SeekFrom::End(0))?;
@@ -57,7 +62,7 @@ impl Replay {
         self.clicks.reserve(clicks_len as usize);
 
         for _ in 0..clicks_len {
-            reader.read(&mut small_buf)?;
+            reader.read_exact(&mut small_buf)?;
             let state = small_buf[0];
 
             let hold = state & 1 == 1;
@@ -66,12 +71,12 @@ impl Replay {
             let frame = match replay_type {
                 URLReplayType::XPos => return Err(ReplayError::ParseError),
                 URLReplayType::Frames => {
-                    reader.read(&mut buf)?;
+                    reader.read_exact(&mut buf)?;
                     u32::from_le_bytes(buf)
                 }
                 URLReplayType::Both => {
                     reader.seek(std::io::SeekFrom::Current(4))?;
-                    reader.read(&mut buf)?;
+                    reader.read_exact(&mut buf)?;
                     u32::from_le_bytes(buf)
                 }
             };
@@ -85,15 +90,15 @@ impl Replay {
     pub fn write_url(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        writer.write(&self.fps.to_le_bytes())?;
-        writer.write(&[URLReplayType::Frames.into()])?;
+        writer.write_all(&self.fps.to_le_bytes())?;
+        writer.write_all(&[URLReplayType::Frames.into()])?;
 
         self.clicks.iter().try_for_each(|click| {
             click.apply_hold(|frame, hold, p2| {
-                let state: u8 = if hold { 1 } else { 0 } | if p2 { 2 } else { 0 };
+                let state: u8 = (hold as u8) | if p2 { 2 } else { 0 };
 
-                writer.write(&state.to_le_bytes())?;
-                writer.write(&frame.to_le_bytes())?;
+                writer.write_all(&state.to_le_bytes())?;
+                writer.write_all(&frame.to_le_bytes())?;
 
                 Ok::<(), ReplayError>(())
             })
