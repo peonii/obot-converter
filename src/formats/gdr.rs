@@ -127,7 +127,10 @@ impl Replay {
     pub fn write_gdr(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let replay = GDRReplay::try_from(self)?;
 
-        rmp_serde::encode::write(writer, &replay)
+        let mut serializer = rmp_serde::Serializer::new(writer)
+            .with_struct_map();
+
+        replay.serialize(&mut serializer)
             .map_err(|_| ReplayError::WriteError)?;
 
         Ok(())
