@@ -66,6 +66,7 @@ pub enum Format {
     GDR,
     GDRJson,
     XDBot,
+    Silicate,
     PlainText,
 }
 
@@ -130,6 +131,7 @@ impl Converter {
             Format::XBot => self.loaded_replay.parse_xbot(cursor),
             Format::XDBot => self.loaded_replay.parse_xdbot(cursor),
             Format::Fembot => self.loaded_replay.parse_fembot(cursor),
+            Format::Silicate => self.loaded_replay.parse_silicate(cursor),
         };
 
         match result {
@@ -420,6 +422,7 @@ impl Converter {
             Format::XBot => self.loaded_replay.write_xbot(&mut cursor),
             Format::XDBot => self.loaded_replay.write_xdbot(&mut cursor),
             Format::Fembot => self.loaded_replay.write_fembot(&mut cursor),
+            Format::Silicate => self.loaded_replay.write_silicate(&mut cursor),
         };
 
         match result {

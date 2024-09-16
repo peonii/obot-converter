@@ -19,3 +19,4 @@ pub mod echo;
 pub mod kdbot;
 pub mod xdbot;
 pub mod fembot;
+pub mod silicate;
