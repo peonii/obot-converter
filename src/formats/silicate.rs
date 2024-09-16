@@ -34,7 +34,7 @@ impl Replay {
             let down = (state & 0b0001) != 0;
 
             self.clicks.push(
-                Click::from_hold(frame, down, !player_2)
+                Click::from_hold(frame, down, player_2)
             );
         }
 
@@ -53,7 +53,7 @@ impl Replay {
                 let mut state: u32 = 0;
 
                 state |= frame << 4;
-                state |= if !p2 { 1 } else { 0 } << 3;
+                state |= if p2 { 1 } else { 0 } << 3;
                 state |= 1 << 1;
                 state |= if hold { 1 } else { 0 };
 
