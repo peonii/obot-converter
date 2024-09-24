@@ -45,7 +45,7 @@ impl Replay {
     pub fn write_silicate(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        writer.write_all(&self.fps.to_le_bytes())?;
+        writer.write_all(&(self.fps as f64).to_le_bytes())?;
         writer.write_all(&(self.clicks.len() as u32).to_le_bytes())?;
 
         self.clicks.iter().try_for_each(|click| {
