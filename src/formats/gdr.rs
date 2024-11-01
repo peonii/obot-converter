@@ -4,19 +4,35 @@ use serde::{Deserialize, Serialize};
 
 use super::replay::{Click, GameVersion, Replay, ReplayError};
 
+fn default_bot_name() -> String {
+    "NATTIE_CONVERTER".to_owned()
+}
+
+fn default_bot_ver() -> String {
+    "1.0.0".to_owned()
+}
+
 #[derive(Serialize, Deserialize, Default)]
 struct BotInfo {
-    #[serde(default)]
+    #[serde(default = "default_bot_name")]
     pub name: String,
-    #[serde(default)]
+    #[serde(default = "default_bot_ver")]
     pub version: String,
+}
+
+fn default_level_name() -> String {
+    "Converted".to_owned()
+}
+
+fn default_level_id() -> u32 {
+    12345678
 }
 
 #[derive(Serialize, Deserialize, Default)]
 struct LevelInfo {
-    #[serde(default)]
+    #[serde(default = "default_level_id")]
     pub id: u32,
-    #[serde(default)]
+    #[serde(default = "default_level_name")]
     pub name: String,
 }
 
@@ -30,6 +46,8 @@ struct GDRInput {
     pub p2: bool,
     #[serde(default)]
     pub down: bool,
+    #[serde(default)]
+    pub mhr_meta: bool, // should be always false
 }
 
 impl From<GDRInput> for Click {
@@ -52,7 +70,7 @@ struct GDRReplay {
     pub version: f32,
     #[serde(default)]
     pub duration: f32,
-    #[serde(default)]
+    #[serde(default = "default_bot_name")]
     pub author: String,
     #[serde(default)]
     pub seed: i32,
@@ -77,10 +95,13 @@ impl TryFrom<&Replay> for GDRReplay {
     type Error = ReplayError;
 
     fn try_from(orig: &Replay) -> Result<Self, Self::Error> {
+        let dur = (orig.clicks.last().map_or(0, |i| i.frame) as f32) / orig.fps;
+
         let mut replay = Self {
             fps: orig.fps,
             game_version: 2.204,
             version: 1.0,
+            duration: dur,
             ..Default::default()
         };
 
@@ -91,6 +112,7 @@ impl TryFrom<&Replay> for GDRReplay {
                     down,
                     p2,
                     button: 1,
+                    mhr_meta: false,
                 });
 
                 Ok::<(), ReplayError>(())
@@ -127,10 +149,10 @@ impl Replay {
     pub fn write_gdr(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let replay = GDRReplay::try_from(self)?;
 
-        let mut serializer = rmp_serde::Serializer::new(writer)
-            .with_struct_map();
+        let mut serializer = rmp_serde::Serializer::new(writer).with_struct_map();
 
-        replay.serialize(&mut serializer)
+        replay
+            .serialize(&mut serializer)
             .map_err(|_| ReplayError::WriteError)?;
 
         Ok(())
