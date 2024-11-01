@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use super::replay::{Click, GameVersion, Replay, ReplayError};
 
 fn default_bot_name() -> String {
-    "NATTIE_CONVERTER".to_owned()
+    "NATTIE_CONVERTER".to_string()
 }
 
 fn default_bot_ver() -> String {
-    "1.0.0".to_owned()
+    "1.0.0".to_string()
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -21,7 +21,7 @@ struct BotInfo {
 }
 
 fn default_level_name() -> String {
-    "Converted".to_owned()
+    "Converted".to_string()
 }
 
 fn default_level_id() -> u32 {
@@ -46,8 +46,6 @@ struct GDRInput {
     pub p2: bool,
     #[serde(default)]
     pub down: bool,
-    #[serde(default)]
-    pub mhr_meta: bool, // should be always false
 }
 
 impl From<GDRInput> for Click {
@@ -79,9 +77,9 @@ struct GDRReplay {
     #[serde(default)]
     pub ldm: bool,
 
-    #[serde(default, rename = "botInfo")]
+    #[serde(default, rename = "bot")]
     pub bot_info: BotInfo,
-    #[serde(default, rename = "levelInfo")]
+    #[serde(default, rename = "level")]
     pub level_info: LevelInfo,
 
     #[serde(default, rename = "inputs")]
@@ -102,6 +100,15 @@ impl TryFrom<&Replay> for GDRReplay {
             game_version: 2.204,
             version: 1.0,
             duration: dur,
+            author: "CONVERTED MACRO".to_owned(),
+            bot_info: BotInfo {
+                name: "NATTIE_CONVERTER".to_string(),
+                version: "1.0.0".to_string(),
+            },
+            level_info: LevelInfo {
+                id: 12345678,
+                name: "LEVEL NAME".to_string(),
+            },
             ..Default::default()
         };
 
@@ -112,7 +119,6 @@ impl TryFrom<&Replay> for GDRReplay {
                     down,
                     p2,
                     button: 1,
-                    mhr_meta: false,
                 });
 
                 Ok::<(), ReplayError>(())
