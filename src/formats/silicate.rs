@@ -1,10 +1,34 @@
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
+use slc_oxide::{input::{InputData, PlayerInput}, meta::Meta};
+
 use super::replay::{Click, GameVersion, Replay, ReplayError};
+
+struct Slc2Meta {
+    reserved: [u8; 64],
+}
+
+impl Meta for Slc2Meta {
+    fn from_bytes(bytes: &[u8]) -> Self {
+        let mut reserved = [0; 64];
+        reserved.copy_from_slice(&bytes[..64]);
+        Slc2Meta { reserved }
+    }
+
+    fn size() -> u64 {
+        64
+    }
+
+    fn to_bytes(&self) -> Box<[u8]> {
+        let mut bytes = vec![0; 64];
+        bytes[..64].copy_from_slice(&self.reserved);
+        bytes.into_boxed_slice()
+    }
+}
 
 impl Replay {
     pub fn parse_silicate(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
-        self.game_version = GameVersion::Version2113;
+        self.game_version = GameVersion::Version2206;
 
         let mut reader = BufReader::new(reader);
 
@@ -38,6 +62,58 @@ impl Replay {
             );
         }
 
+
+        Ok(())
+    }
+
+    pub fn parse_slc2(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
+        self.game_version = GameVersion::Version2206;
+
+        let mut reader = BufReader::new(reader);
+        let replay = slc_oxide::replay::Replay::<Slc2Meta>::read(&mut reader)?;
+
+        self.fps = replay.tps as f32;
+        self.clicks.clear();
+        self.clicks.reserve(replay.inputs.len());
+
+        for click in replay.inputs {
+            match click.data {
+                InputData::Player(p) => {
+                    self.clicks.push(Click::from_hold(click.frame as u32, p.hold, p.player_2));
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn write_slc2(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
+        let mut writer = BufWriter::new(writer);
+
+        let meta = Slc2Meta { reserved: [0; 64], };
+        let mut replay = slc_oxide::replay::Replay::<Slc2Meta>::new(self.fps as f64, meta);
+
+        replay.inputs.reserve(self.clicks.len());
+
+        self.clicks.iter().try_for_each(|click| {
+            click.apply_hold(|frame, hold, player_2| {
+                replay.add_input(
+                    frame as u64,
+                    InputData::Player(PlayerInput {
+                        hold,
+                        player_2,
+                        button: 1,
+                    })
+                );
+
+                Ok::<(), ReplayError>(())
+            })
+        })?;
+
+        replay.write(&mut writer)?;
 
         Ok(())
     }
