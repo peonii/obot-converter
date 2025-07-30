@@ -79,6 +79,10 @@ impl Replay {
         for click in replay.inputs {
             match click.data {
                 InputData::Player(p) => {
+                    if p.button != 1 {
+                        continue;
+                    }
+
                     self.clicks.push(Click::from_hold(click.frame as u32, p.hold, p.player_2));
                 }
                 _ => {
