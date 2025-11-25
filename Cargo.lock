@@ -290,6 +290,7 @@ dependencies = [
  "serde_json",
  "simd-json",
  "slc_oxide",
+ "tcm",
  "thiserror 1.0.50",
  "wasm-bindgen",
  "web-sys",
@@ -478,6 +479,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tcm"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bb18422462551a4437aebcf8226d563790b54eda33bb803b086a75e0832e2ea"
+dependencies = [
+ "thiserror 2.0.17",
 ]
 
 [[package]]

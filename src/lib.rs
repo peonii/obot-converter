@@ -69,6 +69,7 @@ pub enum Format {
     Silicate,
     Slc2,
     Slc3,
+    Tcm,
     PlainText,
 }
 
@@ -136,6 +137,7 @@ impl Converter {
             Format::Silicate => self.loaded_replay.parse_silicate(cursor),
             Format::Slc2 => self.loaded_replay.parse_slc2(cursor),
             Format::Slc3 => self.loaded_replay.parse_slc3(cursor),
+            Format::Tcm => self.loaded_replay.parse_tcm(cursor),
         };
 
         match result {
@@ -429,6 +431,7 @@ impl Converter {
             Format::Silicate => self.loaded_replay.write_silicate(&mut cursor),
             Format::Slc2 => self.loaded_replay.write_slc2(&mut cursor),
             Format::Slc3 => self.loaded_replay.write_slc3(&mut cursor),
+            Format::Tcm => self.loaded_replay.write_tcm(&mut cursor),
         };
 
         match result {

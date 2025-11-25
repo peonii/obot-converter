@@ -28,6 +28,7 @@ export const formats: {
     [Format.XDBot]:['XDBot', 'xd', GameVersion.Version2206, false],
     [Format.GDR]: ['GDR', 'gdr', GameVersion.Version2206, false],
     [Format.GDRJson]: ['GDR (Json)', 'gdr.json', GameVersion.Version2206, false],
+    [Format.Tcm]: ['TCBot', 'tcm', GameVersion.Version2206, false],
     [Format.Silicate]: ['Silicate v1', 'slc', GameVersion.Version2206, false],
     [Format.Slc2]: ['Silicate v2', 'slc', GameVersion.Version2206, false],
     [Format.Slc3]: ['Silicate v3', 'slc', GameVersion.Version2206, false],
