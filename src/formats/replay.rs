@@ -18,6 +18,9 @@ pub enum ReplayError {
 
     #[error("Failed to read replay")]
     Slc2Error(#[from] slc_oxide::replay::ReplayError),
+
+    #[error("Failed to read replay")]
+    Slc3Error(#[from] slc_oxide::v3::replay::ReplayError),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

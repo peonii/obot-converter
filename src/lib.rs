@@ -68,6 +68,7 @@ pub enum Format {
     XDBot,
     Silicate,
     Slc2,
+    Slc3,
     PlainText,
 }
 
@@ -134,6 +135,7 @@ impl Converter {
             Format::Fembot => self.loaded_replay.parse_fembot(cursor),
             Format::Silicate => self.loaded_replay.parse_silicate(cursor),
             Format::Slc2 => self.loaded_replay.parse_slc2(cursor),
+            Format::Slc3 => self.loaded_replay.parse_slc3(cursor),
         };
 
         match result {
@@ -426,6 +428,7 @@ impl Converter {
             Format::Fembot => self.loaded_replay.write_fembot(&mut cursor),
             Format::Silicate => self.loaded_replay.write_silicate(&mut cursor),
             Format::Slc2 => self.loaded_replay.write_slc2(&mut cursor),
+            Format::Slc3 => self.loaded_replay.write_slc3(&mut cursor),
         };
 
         match result {

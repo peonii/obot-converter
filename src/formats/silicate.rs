@@ -1,6 +1,14 @@
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 
-use slc_oxide::{input::{InputData, PlayerInput}, meta::Meta};
+use slc_oxide::{
+    input::{InputData, PlayerInput},
+    meta::Meta,
+    v3::{
+        atom::{AtomId, AtomVariant},
+        builtin::ActionAtom,
+        Action, ActionType, Metadata,
+    },
+};
 
 use super::replay::{Click, GameVersion, Replay, ReplayError};
 
@@ -51,17 +59,16 @@ impl Replay {
             let frame = (state >> 4) as u32;
             let player_2 = (state & 0b1000) != 0;
             match (state & 0b0110) >> 1 {
-                1 => {},
-                _ => { continue; }
+                1 => {}
+                _ => {
+                    continue;
+                }
             };
 
             let down = (state & 0b0001) != 0;
 
-            self.clicks.push(
-                Click::from_hold(frame, down, player_2)
-            );
+            self.clicks.push(Click::from_hold(frame, down, player_2));
         }
-
 
         Ok(())
     }
@@ -83,13 +90,71 @@ impl Replay {
                         continue;
                     }
 
-                    self.clicks.push(Click::from_hold(click.frame as u32, p.hold, p.player_2));
+                    self.clicks
+                        .push(Click::from_hold(click.frame as u32, p.hold, p.player_2));
                 }
-                _ => {
-                    continue;
-                }
+                _ => {}
             }
         }
+
+        Ok(())
+    }
+
+    pub fn parse_slc3(&mut self, reader: impl Read + Seek) -> Result<(), ReplayError> {
+        self.game_version = GameVersion::Version2206;
+
+        let mut reader = BufReader::new(reader);
+        let replay = slc_oxide::v3::Replay::read(&mut reader)?;
+
+        self.fps = replay.metadata.tps as f32;
+        self.clicks.clear();
+        let action_atom = replay
+            .atoms
+            .atoms
+            .iter()
+            .find(|atom| atom.id() == AtomId::Action)
+            .ok_or(ReplayError::ParseError)?;
+
+        let AtomVariant::Action(actions) = action_atom else {
+            return Err(ReplayError::ParseError);
+        };
+
+        for action in &actions.actions {
+            if action.action_type == ActionType::Jump {
+                let Action {
+                    frame,
+                    player2,
+                    holding,
+                    ..
+                } = action;
+
+                self.clicks
+                    .push(Click::from_hold(*frame as u32, *holding, *player2));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn write_slc3(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
+        let mut writer = BufWriter::new(writer);
+
+        let mut replay = slc_oxide::v3::Replay::new(Metadata::new(self.fps as f64, 0, 1));
+        replay.metadata.tps = self.fps as f64;
+
+        let mut atom = ActionAtom::new();
+
+        self.clicks.iter().try_for_each(|click| {
+            click.apply_hold(|frame, hold, player_2| {
+                let _ = atom.add_player_action(frame.into(), ActionType::Jump, hold, player_2);
+
+                Ok::<(), ReplayError>(())
+            })
+        })?;
+
+        replay.add_atom(AtomVariant::Action(atom));
+
+        replay.write(&mut writer)?;
 
         Ok(())
     }
@@ -97,7 +162,7 @@ impl Replay {
     pub fn write_slc2(&self, writer: &mut (impl Write + Seek)) -> Result<(), ReplayError> {
         let mut writer = BufWriter::new(writer);
 
-        let meta = Slc2Meta { reserved: [0; 64], };
+        let meta = Slc2Meta { reserved: [0; 64] };
         let mut replay = slc_oxide::replay::Replay::<Slc2Meta>::new(self.fps as f64, meta);
 
         replay.inputs.reserve(self.clicks.len());
@@ -110,7 +175,7 @@ impl Replay {
                         hold,
                         player_2,
                         button: 1,
-                    })
+                    }),
                 );
 
                 Ok::<(), ReplayError>(())
